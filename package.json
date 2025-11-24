@@ -7,6 +7,11 @@
     "start": "node nfc-service.js",
     "build": "pkg nfc-service.js --targets node18-win-x64 --output nfc-service.exe"
   },
+  "pkg": {
+    "assets": [
+      "console.html"
+    ]
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",

@@ -325,12 +325,36 @@
             return div.innerHTML;
         }
 
+        // Función para verificar si el endpoint existe
+        async function checkEndpoint() {
+            try {
+                const response = await fetch(`${SERVICE_URL}/diagnostic`);
+                if (response.ok) {
+                    const diagnostic = await response.json();
+                    console.log('Diagnóstico del servicio:', diagnostic);
+                    return diagnostic.logsCount !== undefined;
+                }
+            } catch (error) {
+                console.error('Error al verificar endpoint:', error);
+            }
+            return false;
+        }
+
         // Función para obtener logs
         async function fetchLogs() {
             try {
+                // Primero verificar si el endpoint existe
+                const endpointExists = await checkEndpoint();
+                if (!endpointExists) {
+                    throw new Error('El servicio no tiene el endpoint /logs. Es posible que necesites recompilar el servicio con la versión actualizada.');
+                }
+
                 const response = await fetch(`${SERVICE_URL}/logs?limit=200`);
                 
                 if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('Endpoint /logs no encontrado. El servicio necesita ser actualizado.');
+                    }
                     throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
                 }
                 
@@ -354,10 +378,10 @@
                         <div style="font-size: 12px; color: #858585;">
                             ${error.message || 'Error desconocido'}<br>
                             <br>
-                            Verifica que:<br>
-                            • El servicio esté corriendo<br>
-                            • El puerto 3001 esté disponible<br>
-                            • No haya problemas de firewall<br>
+                            <strong>Posibles soluciones:</strong><br>
+                            • Detén el servicio actual (Administrador de tareas)<br>
+                            • Recompila el servicio con la versión actualizada<br>
+                            • O ejecuta directamente: <code>node nfc-service.js</code><br>
                             <br>
                             <button onclick="refreshLogs()" style="padding: 8px 16px; margin-top: 10px; cursor: pointer;">Reintentar</button>
                         </div>

@@ -52,7 +52,8 @@ Filename: "{tmp}\Driver\Setup.exe"; StatusMsg: "Ejecutando instalador de control
 Filename: "{app}\instalar-servicio.bat"; StatusMsg: "Registrando e iniciando el servicio..."; Flags: waituntilterminated
 
 ; Paso 3: Abrir consola de verificación (al finalizar)
-Filename: "{app}\console.html"; Description: "Abrir consola de verificación"; Flags: postinstall shellexec nowait
+; Esperar un momento para que el servicio inicie y luego abrir la URL
+Filename: "powershell.exe"; Parameters: "-Command ""Start-Sleep -Seconds 3; Start-Process 'http://localhost:3001/console'"""; Description: "Abrir consola de verificación"; Flags: postinstall runhidden nowait
 
 [UninstallRun]
 ; Ejecutar desinstalador del servicio antes de borrar archivos
@@ -65,6 +66,6 @@ Filename: "{app}\desinstalar-servicio.bat"; Flags: waituntilterminated runhidden
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Icons]
-Name: "{commonprograms}\{#MyAppName}"; Filename: "{app}\console.html"
-Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\console.html"; Tasks: desktopicon
+Name: "{commonprograms}\{#MyAppName}"; Filename: "http://localhost:3001/console"
+Name: "{commondesktop}\{#MyAppName}"; Filename: "http://localhost:3001/console"; Tasks: desktopicon
 
