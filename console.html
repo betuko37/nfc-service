@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola NFC Service - Logs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3e3e3e;
+        }
+
+        h1 {
+            color: #4ec9b0;
+            margin-bottom: 10px;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .controls {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            border: 1px solid #3e3e3e;
+        }
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button:active {
+            background: #0a4d73;
+        }
+
+        button.danger {
+            background: #d32f2f;
+        }
+
+        button.danger:hover {
+            background: #f44336;
+        }
+
+        .log-container {
+            background: #252526;
+            border: 1px solid #3e3e3e;
+            border-radius: 8px;
+            overflow: hidden;
+            height: calc(100vh - 250px);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-header {
+            background: #2d2d2d;
+            padding: 10px 15px;
+            border-bottom: 1px solid #3e3e3e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            border-left: 3px solid transparent;
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+
+        .log-entry:hover {
+            background: #2a2d2e;
+        }
+
+        .log-entry.info {
+            border-left-color: #569cd6;
+        }
+
+        .log-entry.success {
+            border-left-color: #4ec9b0;
+        }
+
+        .log-entry.error {
+            border-left-color: #f48771;
+            background: rgba(244, 135, 113, 0.1);
+        }
+
+        .log-entry.warning {
+            border-left-color: #dcdcaa;
+        }
+
+        .log-time {
+            color: #858585;
+            margin-right: 10px;
+        }
+
+        .log-type {
+            display: inline-block;
+            width: 60px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .log-type.info { color: #569cd6; }
+        .log-type.success { color: #4ec9b0; }
+        .log-type.error { color: #f48771; }
+        .log-type.warning { color: #dcdcaa; }
+
+        .log-message {
+            color: #d4d4d4;
+        }
+
+        .empty-logs {
+            text-align: center;
+            padding: 40px;
+            color: #858585;
+        }
+
+        /* Scrollbar personalizado */
+        .log-content::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .log-content::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .log-content::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb:hover {
+            background: #4e4e4e;
+        }
+
+        .auto-scroll {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="checkbox"] {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Consola NFC Service</h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-indicator" id="readerStatus"></div>
+                    <span>Lector: <span id="readerText">Desconectado</span></span>
+                </div>
+                <div class="status-item">
+                    <span>Servicio: <span id="serviceStatus">Conectado</span></span>
+                </div>
+                <div class="status-item">
+                    <span>Logs: <span id="logCount">0</span></span>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <button onclick="refreshLogs()">🔄 Actualizar</button>
+            <button onclick="clearLogs()" class="danger">🗑️ Limpiar Logs</button>
+            <div class="auto-scroll">
+                <label>
+                    <input type="checkbox" id="autoScroll" checked>
+                    Auto-scroll
+                </label>
+            </div>
+        </div>
+
+        <div class="log-container">
+            <div class="log-header">
+                <strong>Logs del Servicio</strong>
+                <span id="lastUpdate">Actualizando...</span>
+            </div>
+            <div class="log-content" id="logContent">
+                <div class="empty-logs">Cargando logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SERVICE_URL = 'http://localhost:3001';
+        let autoScrollEnabled = true;
+        let refreshInterval;
+
+        // Inicializar
+        document.getElementById('autoScroll').addEventListener('change', (e) => {
+            autoScrollEnabled = e.target.checked;
+        });
+
+        // Función para formatear timestamp
+        function formatTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+        }
+
+        // Función para obtener el tipo de log
+        function getLogTypeClass(type) {
+            return type || 'info';
+        }
+
+        // Función para renderizar logs
+        function renderLogs(logs) {
+            const container = document.getElementById('logContent');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="empty-logs">No hay logs disponibles</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(log => {
+                const typeClass = getLogTypeClass(log.type);
+                return `
+                    <div class="log-entry ${typeClass}">
+                        <span class="log-time">${formatTime(log.timestamp)}</span>
+                        <span class="log-type ${typeClass}">[${log.type.toUpperCase()}]</span>
+                        <span class="log-message">${escapeHtml(log.message)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Auto-scroll al final
+            if (autoScrollEnabled) {
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // Actualizar contador
+            document.getElementById('logCount').textContent = logs.length;
+        }
+
+        // Función para escapar HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Función para obtener logs
+        async function fetchLogs() {
+            try {
+                const response = await fetch(`${SERVICE_URL}/logs?limit=200`);
+                const logs = await response.json();
+                renderLogs(logs);
+                document.getElementById('lastUpdate').textContent = 
+                    `Última actualización: ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                console.error('Error al obtener logs:', error);
+                document.getElementById('serviceStatus').textContent = 'Desconectado';
+            }
+        }
+
+        // Función para obtener estado
+        async function fetchStatus() {
+            try {
+                const response = await fetch(`${SERVICE_URL}/status`);
+                const status = await response.json();
+                
+                const indicator = document.getElementById('readerStatus');
+                const readerText = document.getElementById('readerText');
+                
+                if (status.readerConnected) {
+                    indicator.classList.add('connected');
+                    readerText.textContent = 'Conectado';
+                } else {
+                    indicator.classList.remove('connected');
+                    readerText.textContent = 'Desconectado';
+                }
+                
+                document.getElementById('serviceStatus').textContent = 'Conectado';
+            } catch (error) {
+                document.getElementById('serviceStatus').textContent = 'Desconectado';
+            }
+        }
+
+        // Función para refrescar logs
+        function refreshLogs() {
+            fetchLogs();
+            fetchStatus();
+        }
+
+        // Función para limpiar logs
+        async function clearLogs() {
+            if (!confirm('¿Estás seguro de que quieres limpiar todos los logs?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SERVICE_URL}/logs/clear`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    fetchLogs();
+                }
+            } catch (error) {
+                console.error('Error al limpiar logs:', error);
+            }
+        }
+
+        // Inicializar y configurar polling
+        refreshLogs();
+        refreshInterval = setInterval(() => {
+            fetchLogs();
+            fetchStatus();
+        }, 1000); // Actualizar cada segundo
+
+        // Limpiar intervalo al cerrar
+        window.addEventListener('beforeunload', () => {
+            clearInterval(refreshInterval);
+        });
+    </script>
+</body>
+</html>
+

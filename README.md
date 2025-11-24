@@ -9,6 +9,7 @@ Servicio REST para leer tarjetas NFC usando el lector ACR122U. El servicio detec
 - ✅ API REST simple con CORS habilitado
 - ✅ Estado del lector en tiempo real
 - ✅ Auto-limpieza de IDs después de 5 segundos
+- ✅ Consola web para visualizar logs en tiempo real
 
 ## 🚀 Instalación
 
@@ -64,6 +65,77 @@ Obtiene el estado del servicio y del lector.
 ```bash
 curl http://localhost:3001/status
 ```
+
+### `GET /logs`
+
+Obtiene los logs del servicio (últimos 100 por defecto).
+
+**Parámetros:**
+- `limit` (opcional): Número de logs a obtener (máximo 500)
+
+**Respuesta:**
+```json
+[
+  {
+    "timestamp": "2024-01-15T10:30:45.123Z",
+    "type": "success",
+    "message": "Tarjeta detectada: 83:BF:6E:BE"
+  }
+]
+```
+
+**Ejemplo:**
+```bash
+curl http://localhost:3001/logs?limit=50
+```
+
+### `POST /logs/clear`
+
+Limpia todos los logs almacenados.
+
+**Ejemplo:**
+```bash
+curl -X POST http://localhost:3001/logs/clear
+```
+
+### `GET /console`
+
+Interfaz web para visualizar los logs en tiempo real.
+
+**Acceso:**
+Abre en tu navegador: `http://localhost:3001/console`
+
+## 🖥️ Consola de Logs
+
+El servicio incluye una consola web para visualizar los logs en tiempo real.
+
+### Acceder a la consola
+
+1. Inicia el servicio:
+```bash
+npm start
+```
+
+2. Abre tu navegador y ve a:
+```
+http://localhost:3001/console
+```
+
+### Características de la consola
+
+- ✅ **Actualización automática** cada segundo
+- ✅ **Auto-scroll** al final de los logs
+- ✅ **Indicadores de estado** del lector y servicio
+- ✅ **Filtrado por tipo** (info, success, error, warning)
+- ✅ **Limpieza de logs** con un solo clic
+- ✅ **Interfaz oscura** tipo terminal
+
+### Tipos de logs
+
+- **INFO** (azul): Información general del servicio
+- **SUCCESS** (verde): Eventos exitosos (tarjetas detectadas, conexiones)
+- **ERROR** (rojo): Errores del lector o servicio
+- **WARNING** (amarillo): Advertencias (desconexiones)
 
 ## 💻 Uso en React
 

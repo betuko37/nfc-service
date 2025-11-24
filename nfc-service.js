@@ -9,16 +9,40 @@ const PORT = 3001;
 let lastCardId = null;
 let isReaderConnected = false;
 
+// Sistema de logs
+const logs = [];
+const MAX_LOGS = 500; // Máximo de logs a mantener en memoria
+
+function addLog(type, message) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    type: type, // 'info', 'success', 'error', 'warning'
+    message: message
+  };
+  
+  logs.push(logEntry);
+  
+  // Mantener solo los últimos MAX_LOGS
+  if (logs.length > MAX_LOGS) {
+    logs.shift();
+  }
+  
+  // También mostrar en consola
+  const timestamp = new Date().toLocaleTimeString();
+  const prefix = type === 'error' ? '✗' : type === 'success' ? '✓' : 'ℹ';
+  console.log(`[${timestamp}] ${prefix} ${message}`);
+}
+
 const nfc = new NFC();
 
 nfc.on('reader', reader => {
-  console.log('✓ Lector NFC conectado:', reader.reader.name);
+  addLog('success', `Lector NFC conectado: ${reader.reader.name}`);
   isReaderConnected = true;
 
   reader.on('card', card => {
     // Formatear ID: convertir a mayúsculas y agregar dos puntos
     const cardId = card.uid.toUpperCase().match(/.{1,2}/g).join(':');
-    console.log('✓ Tarjeta detectada:', cardId);
+    addLog('success', `Tarjeta detectada: ${cardId}`);
     lastCardId = cardId;
     
     setTimeout(() => {
@@ -29,11 +53,11 @@ nfc.on('reader', reader => {
   });
 
   reader.on('error', err => {
-    console.error('✗ Error en lector:', err);
+    addLog('error', `Error en lector: ${err.message || err}`);
   });
 
   reader.on('end', () => {
-    console.log('✗ Lector desconectado');
+    addLog('warning', 'Lector desconectado');
     isReaderConnected = false;
   });
 });
@@ -54,10 +78,32 @@ app.get('/status', (req, res) => {
   });
 });
 
+// Endpoint para obtener logs
+app.get('/logs', (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  const recentLogs = logs.slice(-limit);
+  res.json(recentLogs);
+});
+
+// Endpoint para limpiar logs
+app.post('/logs/clear', (req, res) => {
+  logs.length = 0;
+  addLog('info', 'Logs limpiados manualmente');
+  res.json({ success: true, message: 'Logs limpiados' });
+});
+
+// Servir la consola web
+app.get('/console', (req, res) => {
+  res.sendFile(__dirname + '/console.html');
+});
+
 app.listen(PORT, () => {
+  addLog('info', `Servicio NFC iniciado en puerto ${PORT}`);
+  addLog('info', 'Esperando lector ACR122U...');
   console.log(`\n=================================`);
   console.log(`  Servicio NFC iniciado`);
   console.log(`  Puerto: ${PORT}`);
+  console.log(`  Consola: http://localhost:${PORT}/console`);
   console.log(`  Esperando lector ACR122U...`);
   console.log(`=================================\n`);
 });
