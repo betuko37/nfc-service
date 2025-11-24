@@ -56,6 +56,9 @@ Filename: "{app}\console.html"; Description: "Abrir consola de verificación"; F
 
 [UninstallRun]
 ; Ejecutar desinstalador del servicio antes de borrar archivos
+; Primero detener el proceso si está corriendo
+Filename: "taskkill.exe"; Parameters: "/F /IM nfc-service.exe /T"; Flags: runhidden waituntilterminated; RunOnceId: "StopService"
+; Luego ejecutar el script de desinstalación
 Filename: "{app}\desinstalar-servicio.bat"; Flags: waituntilterminated runhidden; RunOnceId: "DelService"
 
 [Tasks]

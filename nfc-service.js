@@ -80,9 +80,15 @@ app.get('/status', (req, res) => {
 
 // Endpoint para obtener logs
 app.get('/logs', (req, res) => {
-  const limit = parseInt(req.query.limit) || 100;
-  const recentLogs = logs.slice(-limit);
-  res.json(recentLogs);
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const recentLogs = logs.slice(-limit);
+    console.log(`[DEBUG] Endpoint /logs llamado, retornando ${recentLogs.length} logs`);
+    res.json(recentLogs);
+  } catch (error) {
+    console.error('[ERROR] Error en endpoint /logs:', error);
+    res.status(500).json({ error: 'Error al obtener logs', message: error.message });
+  }
 });
 
 // Endpoint para limpiar logs

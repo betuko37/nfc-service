@@ -32,4 +32,5 @@ echo =======================================
 echo [OK] DESINSTALACION COMPLETADA
 echo =======================================
 echo.
-pause
+timeout /t 2 /nobreak >nul
+exit /b 0
