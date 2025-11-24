@@ -97,6 +97,11 @@ app.get('/console', (req, res) => {
   res.sendFile(__dirname + '/console.html');
 });
 
+// Endpoint raíz también sirve la consola
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/console.html');
+});
+
 app.listen(PORT, () => {
   addLog('info', `Servicio NFC iniciado en puerto ${PORT}`);
   addLog('info', 'Esperando lector ACR122U...');

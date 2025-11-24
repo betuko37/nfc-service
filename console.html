@@ -254,7 +254,12 @@
                 <span id="lastUpdate">Actualizando...</span>
             </div>
             <div class="log-content" id="logContent">
-                <div class="empty-logs">Cargando logs...</div>
+                <div class="empty-logs">
+                    <div>🔄 Conectando con el servicio...</div>
+                    <div style="font-size: 11px; color: #858585; margin-top: 10px;">
+                        Si este mensaje persiste, verifica que el servicio esté corriendo en el puerto 3001
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -324,13 +329,43 @@
         async function fetchLogs() {
             try {
                 const response = await fetch(`${SERVICE_URL}/logs?limit=200`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+                }
+                
                 const logs = await response.json();
+                
+                // Verificar que logs sea un array
+                if (!Array.isArray(logs)) {
+                    throw new Error('Respuesta inválida: se esperaba un array de logs');
+                }
+                
                 renderLogs(logs);
                 document.getElementById('lastUpdate').textContent = 
                     `Última actualización: ${new Date().toLocaleTimeString()}`;
+                document.getElementById('serviceStatus').textContent = 'Conectado';
             } catch (error) {
                 console.error('Error al obtener logs:', error);
+                const container = document.getElementById('logContent');
+                container.innerHTML = `
+                    <div class="empty-logs">
+                        <div style="color: #f48771; margin-bottom: 10px;">⚠️ Error al conectar con el servicio</div>
+                        <div style="font-size: 12px; color: #858585;">
+                            ${error.message || 'Error desconocido'}<br>
+                            <br>
+                            Verifica que:<br>
+                            • El servicio esté corriendo<br>
+                            • El puerto 3001 esté disponible<br>
+                            • No haya problemas de firewall<br>
+                            <br>
+                            <button onclick="refreshLogs()" style="padding: 8px 16px; margin-top: 10px; cursor: pointer;">Reintentar</button>
+                        </div>
+                    </div>
+                `;
                 document.getElementById('serviceStatus').textContent = 'Desconectado';
+                document.getElementById('lastUpdate').textContent = 
+                    `Error: ${new Date().toLocaleTimeString()}`;
             }
         }
 
@@ -338,6 +373,11 @@
         async function fetchStatus() {
             try {
                 const response = await fetch(`${SERVICE_URL}/status`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
                 const status = await response.json();
                 
                 const indicator = document.getElementById('readerStatus');
@@ -353,6 +393,10 @@
                 
                 document.getElementById('serviceStatus').textContent = 'Conectado';
             } catch (error) {
+                const indicator = document.getElementById('readerStatus');
+                const readerText = document.getElementById('readerText');
+                indicator.classList.remove('connected');
+                readerText.textContent = 'Error';
                 document.getElementById('serviceStatus').textContent = 'Desconectado';
             }
         }
@@ -382,12 +426,30 @@
             }
         }
 
-        // Inicializar y configurar polling
-        refreshLogs();
-        refreshInterval = setInterval(() => {
-            fetchLogs();
-            fetchStatus();
-        }, 1000); // Actualizar cada segundo
+        // Verificar si se está ejecutando desde file://
+        if (window.location.protocol === 'file:') {
+            const container = document.getElementById('logContent');
+            container.innerHTML = `
+                <div class="empty-logs">
+                    <div style="color: #dcdcaa; margin-bottom: 10px;">⚠️ Archivo abierto directamente</div>
+                    <div style="font-size: 12px; color: #858585;">
+                        Este archivo debe abrirse desde el servidor para funcionar correctamente.<br>
+                        <br>
+                        Abre en tu navegador:<br>
+                        <strong style="color: #4ec9b0;">http://localhost:3001/console</strong><br>
+                        <br>
+                        O desde el menú de inicio: "NFC Service"
+                    </div>
+                </div>
+            `;
+        } else {
+            // Inicializar y configurar polling
+            refreshLogs();
+            refreshInterval = setInterval(() => {
+                fetchLogs();
+                fetchStatus();
+            }, 1000); // Actualizar cada segundo
+        }
 
         // Limpiar intervalo al cerrar
         window.addEventListener('beforeunload', () => {
