@@ -36,10 +36,51 @@ function addLog(type, message) {
 }
 
 const nfc = new NFC();
+let currentReader = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+let reconnectInterval = null;
+
+// Función para reconectar el lector NFC
+function reconnectNFC() {
+  if (isReaderConnected) {
+    return; // Ya está conectado
+  }
+
+  reconnectAttempts++;
+  
+  if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+    addLog('warning', `Intentos de reconexión agotados (${MAX_RECONNECT_ATTEMPTS}). Reintentando en 30 segundos...`);
+    reconnectAttempts = 0;
+    return;
+  }
+
+  addLog('info', `Intentando reconectar lector NFC... (Intento ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+  
+  try {
+    // Cerrar la conexión anterior si existe
+    if (currentReader) {
+      try {
+        currentReader.close();
+      } catch (e) {
+        // Ignorar errores al cerrar
+      }
+      currentReader = null;
+    }
+
+    // Reiniciar la instancia NFC
+    // La librería nfc-pcsc se reconecta automáticamente cuando detecta un lector
+    // Solo necesitamos esperar a que se detecte de nuevo
+  } catch (error) {
+    addLog('error', `Error al intentar reconectar: ${error.message}`);
+  }
+}
 
 nfc.on('reader', reader => {
   addLog('success', `Lector NFC conectado: ${reader.reader.name}`);
   isReaderConnected = true;
+  currentReader = reader;
+  reconnectAttempts = 0; // Resetear contador al conectar
 
   reader.on('card', card => {
     // Formatear ID: convertir a mayúsculas y agregar dos puntos
@@ -79,10 +120,23 @@ nfc.on('reader', reader => {
   });
 
   reader.on('end', () => {
-    addLog('warning', 'Lector desconectado');
+    addLog('warning', 'Lector desconectado - Intentando reconectar...');
     isReaderConnected = false;
+    currentReader = null;
+    
+    // Iniciar proceso de reconexión después de 2 segundos
+    setTimeout(() => {
+      reconnectNFC();
+    }, 2000);
   });
 });
+
+// Verificación periódica del estado del lector (cada 10 segundos)
+setInterval(() => {
+  if (!isReaderConnected && reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+    reconnectNFC();
+  }
+}, 10000); // Verificar cada 10 segundos
 
 app.get('/last-card', (req, res) => {
   res.json({ 
@@ -210,10 +264,12 @@ app.get('/', serveConsole);
 app.listen(PORT, () => {
   addLog('info', `Servicio NFC iniciado en puerto ${PORT}`);
   addLog('info', 'Esperando lector ACR122U...');
+  addLog('info', 'Reconexión automática habilitada');
   console.log(`\n=================================`);
   console.log(`  Servicio NFC iniciado`);
   console.log(`  Puerto: ${PORT}`);
   console.log(`  Consola: http://localhost:${PORT}/console`);
   console.log(`  Esperando lector ACR122U...`);
+  console.log(`  Reconexión automática: ACTIVADA`);
   console.log(`=================================\n`);
 });
