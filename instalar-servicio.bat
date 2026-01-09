@@ -82,12 +82,19 @@ echo.
 echo [4/4] Iniciando servicios...
 cd /d "%SCRIPT_DIR%"
 
+:: Verificar que existe node portable
+if exist "%SCRIPT_DIR%node\node.exe" (
+    echo      Node.js portable encontrado
+) else (
+    echo      [WARN] Node.js portable no encontrado, usando del sistema
+)
+
 :: Iniciar servicio OCULTO usando VBScript
 cscript //nologo "%SCRIPT_DIR%iniciar-oculto.vbs"
 echo      Esperando que inicie el servicio...
-timeout /t 5 /nobreak >nul
+timeout /t 8 /nobreak >nul
 
-:: Verificar puerto con reintentos
+:: Verificar puerto con reintentos (más tiempo)
 set "INTENTOS=0"
 :verificar_puerto
 set /a INTENTOS+=1
@@ -96,31 +103,79 @@ if %errorlevel% equ 0 (
     echo [OK] Servicio NFC corriendo en puerto 3001
     goto :puerto_ok
 )
-if %INTENTOS% lss 5 (
-    echo      Reintentando... ^(%INTENTOS%/5^)
-    timeout /t 2 /nobreak >nul
+if %INTENTOS% lss 10 (
+    echo      Reintentando... ^(%INTENTOS%/10^)
+    timeout /t 3 /nobreak >nul
     goto :verificar_puerto
 )
-echo [WARN] El servicio podria estar iniciando lentamente...
+echo [WARN] El servicio no responde en puerto 3001
+echo      Revisa el log en: %SCRIPT_DIR%inicio.log
 
 :puerto_ok
 :: Iniciar watchdog usando cmd /c para que persista
 cmd /c start "" wscript.exe "%SCRIPT_DIR%watchdog.vbs"
 echo [OK] Watchdog iniciado
 
-echo.
-echo ================================================
-echo    INSTALACION COMPLETADA EXITOSAMENTE
-echo ================================================
-echo.
-echo CARACTERISTICAS:
-echo   [+] Inicio automatico con Windows
-echo   [+] Watchdog: reinicia si el servicio muere
-echo   [+] Deteccion de suspension/hibernacion
-echo   [+] Reconexion NFC automatica
-echo.
-echo ACCESOS:
-echo   Consola: http://localhost:3001/console
-echo   Estado:  http://localhost:3001/status
-echo.
-if "%1"=="" pause
+:: Si no es modo silencioso, mostrar resumen final
+if not "%1"=="silent" (
+    echo.
+    echo ================================================
+    echo    INSTALACION COMPLETADA EXITOSAMENTE
+    echo ================================================
+    echo.
+    echo VERIFICACION FINAL:
+    echo.
+    
+    :: Verificar puerto una vez mas
+    netstat -ano 2>nul | findstr ":3001" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo   [OK] Servicio NFC corriendo en puerto 3001
+    ) else (
+        echo   [WARN] Servicio no detectado en puerto 3001
+        echo          Puede estar iniciando, espera unos segundos
+    )
+    
+    :: Verificar procesos
+    tasklist | findstr /i "node.exe" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo   [OK] Proceso Node.js activo
+    ) else (
+        echo   [WARN] Proceso Node.js no detectado
+    )
+    
+    tasklist | findstr /i "wscript.exe" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo   [OK] Watchdog activo
+    ) else (
+        echo   [WARN] Watchdog no detectado
+    )
+    
+    :: Verificar accesos directos
+    set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+    if exist "%STARTUP%\NFC-Service.lnk" (
+        echo   [OK] Inicio automatico configurado
+    ) else (
+        echo   [ERROR] Inicio automatico no configurado
+    )
+    
+    echo.
+    echo CARACTERISTICAS INSTALADAS:
+    echo   [+] Inicio automatico con Windows
+    echo   [+] Watchdog: reinicia si el servicio muere
+    echo   [+] Deteccion de suspension/hibernacion
+    echo   [+] Reconexion NFC automatica
+    echo   [+] Servicio completamente oculto
+    echo.
+    echo ACCESOS WEB:
+    echo   Consola: http://localhost:3001/console
+    echo   Estado:  http://localhost:3001/status
+    echo   Logs:    http://localhost:3001/logs
+    echo.
+    echo NOTA: Si el servicio no responde, ejecuta:
+    echo   diagnostico.bat
+    echo.
+    echo ================================================
+    echo.
+    echo Presiona ENTER para cerrar esta ventana...
+    pause >nul
+)

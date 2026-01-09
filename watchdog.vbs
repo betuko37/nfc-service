@@ -7,7 +7,7 @@
 
 Option Explicit
 
-Dim WshShell, fso, scriptPath, exePath, jsPath
+Dim WshShell, fso, scriptPath, exePath, jsPath, nodePortable
 Dim checkInterval, maxRetries, currentRetry
 Dim logFile
 
@@ -23,6 +23,7 @@ currentRetry = 0
 scriptPath = fso.GetParentFolderName(WScript.ScriptFullName)
 exePath = scriptPath & "\nfc-service.exe"
 jsPath = scriptPath & "\nfc-service.js"
+nodePortable = scriptPath & "\node\node.exe"
 logFile = scriptPath & "\watchdog.log"
 
 ' Verificar si Node.js está disponible
@@ -93,12 +94,20 @@ Sub StartService()
     
     On Error Resume Next
     
-    ' Cambiar al directorio del script e iniciar node OCULTO (0 = hidden)
+    ' Cambiar al directorio del script
     WshShell.CurrentDirectory = scriptPath
-    WshShell.Run "node nfc-service.js", 0, False
+    
+    ' Usar node portable si existe, sino usar node del sistema
+    If fso.FileExists(nodePortable) Then
+        WriteLog "Usando Node.js portable"
+        WshShell.Run Chr(34) & nodePortable & Chr(34) & " nfc-service.js", 0, False
+    Else
+        WriteLog "Usando Node.js del sistema"
+        WshShell.Run "node nfc-service.js", 0, False
+    End If
     
     If Err.Number = 0 Then
-        WriteLog "Servicio iniciado con Node.js (oculto)"
+        WriteLog "Servicio iniciado correctamente"
         currentRetry = 0
     Else
         WriteLog "Error al iniciar servicio: " & Err.Description
