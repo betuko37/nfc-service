@@ -117,8 +117,8 @@ WriteLog "Monitoreando: " & exePath
 WriteLog "Intervalo: " & (checkInterval / 1000) & " segundos"
 WriteLog "=========================================="
 
-' Verificación inicial - iniciar si no está corriendo
-If Not IsProcessRunning("nfc-service.exe") Then
+' Verificación inicial - iniciar si no responde
+If Not IsServiceResponding() Then
     WriteLog "Servicio no detectado al inicio - Iniciando..."
     StartService
     WScript.Sleep 5000 ' Esperar 5 segundos para que inicie
@@ -129,25 +129,18 @@ Do While True
     ' Esperar el intervalo configurado
     WScript.Sleep checkInterval
     
-    ' Verificar si el proceso está corriendo
-    If Not IsProcessRunning("nfc-service.exe") Then
-        WriteLog "ALERTA: Proceso nfc-service.exe no encontrado"
+    ' Verificar si el servicio responde por HTTP
+    If Not IsServiceResponding() Then
+        WriteLog "ALERTA: Servicio no responde en puerto 3001"
+        
+        ' Matar procesos node que puedan estar zombie
+        On Error Resume Next
+        WshShell.Run "taskkill /F /IM node.exe /FI ""WINDOWTITLE eq nfc*""", 0, True
+        On Error Goto 0
+        
+        WScript.Sleep 2000
         StartService
-        WScript.Sleep 5000 ' Esperar que inicie
-    Else
-        ' El proceso existe, verificar si responde
-        If Not IsServiceResponding() Then
-            WriteLog "ALERTA: Servicio no responde en puerto 3001"
-            
-            ' Matar el proceso zombie y reiniciar
-            On Error Resume Next
-            WshShell.Run "taskkill /F /IM nfc-service.exe", 0, True
-            On Error Goto 0
-            
-            WScript.Sleep 2000
-            StartService
-            WScript.Sleep 5000
-        End If
+        WScript.Sleep 5000
     End If
     
     ' Si hay límite de reintentos, verificar

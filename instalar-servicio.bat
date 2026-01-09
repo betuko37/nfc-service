@@ -12,8 +12,8 @@ echo.
 set "SCRIPT_DIR=%~dp0"
 
 :: Verificar archivos
-if not exist "%SCRIPT_DIR%nfc-service.exe" (
-    echo [ERROR] No se encuentra nfc-service.exe
+if not exist "%SCRIPT_DIR%nfc-service.js" (
+    echo [ERROR] No se encuentra nfc-service.js
     if "%1"=="" pause
     exit /b 1
 )

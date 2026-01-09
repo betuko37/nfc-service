@@ -24,8 +24,7 @@ ArchitecturesInstallIn64BitMode=x64
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Files]
-; Archivo principal y scripts
-Source: "nfc-service.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Archivo principal y scripts (sin .exe para evitar falsos positivos de antivirus)
 Source: "nfc-service.js"; DestDir: "{app}"; Flags: ignoreversion
 Source: "package.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "watchdog.vbs"; DestDir: "{app}"; Flags: ignoreversion
@@ -37,9 +36,6 @@ Source: "console.html"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Carpeta node_modules REQUERIDA para bindings nativos
 Source: "node_modules\*"; DestDir: "{app}\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Binding nativo para pcsclite (respaldo)
-Source: "pcsclite.node"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Archivos del Driver (se copian a temporal para instalar)
 Source: "ACS_Unified_Driver_MSI_Win_4280_P\*"; DestDir: "{tmp}\Driver"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -56,7 +52,6 @@ Filename: "powershell.exe"; Parameters: "-Command ""Start-Sleep -Seconds 3; Star
 
 [UninstallRun]
 ; Ejecutar desinstalador del servicio antes de borrar archivos
-Filename: "taskkill.exe"; Parameters: "/F /IM nfc-service.exe /T"; Flags: runhidden waituntilterminated; RunOnceId: "StopService"
 Filename: "taskkill.exe"; Parameters: "/F /IM node.exe /T"; Flags: runhidden waituntilterminated; RunOnceId: "StopNode"
 Filename: "{app}\desinstalar-servicio.bat"; Parameters: "silent"; Flags: waituntilterminated runhidden; RunOnceId: "DelService"
 
