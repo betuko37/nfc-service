@@ -1,111 +1,139 @@
 @echo off
 title Diagnostico NFC Service
 chcp 65001 >nul 2>&1
+color 0E
 
 echo.
 echo ================================================
-echo    DIAGNOSTICO NFC SERVICE
+echo    DIAGNOSTICO COMPLETO NFC SERVICE
 echo ================================================
 echo.
 
 set "SCRIPT_DIR=%~dp0"
 
-echo [1] Verificando archivos...
+echo [1/7] Verificando archivos instalados...
+echo.
+
 if exist "%SCRIPT_DIR%nfc-service.js" (
     echo      [OK] nfc-service.js
 ) else (
-    echo      [ERROR] No se encuentra nfc-service.js
+    echo      [ERROR] nfc-service.js NO ENCONTRADO
 )
 
 if exist "%SCRIPT_DIR%node\node.exe" (
-    echo      [OK] Node.js portable encontrado
+    echo      [OK] node\node.exe
+    echo           Version: 
     "%SCRIPT_DIR%node\node.exe" --version
 ) else (
-    echo      [WARN] Node.js portable no encontrado
-    where node >nul 2>&1
-    if %errorlevel% equ 0 (
-        echo      [OK] Node.js del sistema encontrado
-        node --version
-    ) else (
-        echo      [ERROR] Node.js no encontrado en el sistema
-    )
+    echo      [ERROR] node\node.exe NO ENCONTRADO
+    echo             Esta es la causa del problema!
+)
+
+if exist "%SCRIPT_DIR%node_modules" (
+    echo      [OK] node_modules
+) else (
+    echo      [ERROR] node_modules NO ENCONTRADO
+)
+
+if exist "%SCRIPT_DIR%node_modules\@pokusew\pcsclite\build\Release\pcsclite.node" (
+    echo      [OK] pcsclite.node
+) else (
+    echo      [ERROR] pcsclite.node NO ENCONTRADO
 )
 
 echo.
-echo [2] Verificando procesos...
+echo [2/7] Verificando procesos...
+echo.
 tasklist | findstr /i "node.exe" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo      [OK] Proceso node.exe encontrado
+    echo      [INFO] Procesos node.exe encontrados:
     tasklist | findstr /i "node.exe"
 ) else (
     echo      [INFO] No hay procesos node.exe corriendo
 )
 
-tasklist | findstr /i "wscript.exe" >nul 2>&1
+echo.
+echo [3/7] Verificando puerto 47321...
+echo.
+netstat -ano | findstr ":47321" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo      [OK] Proceso wscript.exe encontrado (watchdog)
+    echo      [INFO] Puerto 47321 en uso:
+    netstat -ano | findstr ":47321"
 ) else (
-    echo      [INFO] No hay procesos wscript.exe corriendo
+    echo      [INFO] Puerto 47321 libre (servicio no corriendo)
 )
 
 echo.
-echo [3] Verificando puerto 3001...
-netstat -ano | findstr ":3001" >nul 2>&1
+echo [4/7] Verificando respuesta HTTP...
+echo.
+curl -s http://127.0.0.1:47321/ping > "%TEMP%\nfc_diag.txt" 2>nul
 if %errorlevel% equ 0 (
-    echo      [OK] Puerto 3001 en uso
-    netstat -ano | findstr ":3001"
+    echo      [OK] Servicio responde:
+    type "%TEMP%\nfc_diag.txt"
+    del "%TEMP%\nfc_diag.txt" 2>nul
 ) else (
-    echo      [ERROR] Puerto 3001 no esta en uso
+    echo      [ERROR] Servicio NO responde en http://127.0.0.1:47321/ping
+    del "%TEMP%\nfc_diag.txt" 2>nul
 )
 
 echo.
-echo [4] Verificando servicio HTTP...
-curl -s http://localhost:3001/status >nul 2>&1
-if %errorlevel% equ 0 (
-    echo      [OK] Servicio responde en http://localhost:3001/status
-    curl -s http://localhost:3001/status
-) else (
-    echo      [ERROR] Servicio no responde
-)
-
+echo [5/7] Verificando logs...
 echo.
-echo [5] Verificando logs...
 if exist "%SCRIPT_DIR%inicio.log" (
-    echo      [OK] Log de inicio encontrado:
+    echo      Log de inicio:
     type "%SCRIPT_DIR%inicio.log"
+    echo.
 ) else (
     echo      [INFO] No hay log de inicio
 )
 
 if exist "%SCRIPT_DIR%watchdog.log" (
-    echo      [OK] Log de watchdog encontrado (ultimas 5 lineas):
-    powershell -Command "Get-Content '%SCRIPT_DIR%watchdog.log' -Tail 5"
+    echo      Ultimas lineas de watchdog.log:
+    powershell -Command "Get-Content '%SCRIPT_DIR%watchdog.log' -Tail 5" 2>nul
 ) else (
     echo      [INFO] No hay log de watchdog
 )
 
 echo.
-echo [6] Intentando iniciar servicio manualmente...
+echo [6/7] Intentando iniciar servicio manualmente...
+echo.
+
+:: Matar procesos anteriores
+taskkill /F /IM node.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
+
 cd /d "%SCRIPT_DIR%"
+
 if exist "%SCRIPT_DIR%node\node.exe" (
-    echo      Iniciando con Node.js portable...
-    start "" "%SCRIPT_DIR%node\node.exe" nfc-service.js
+    echo      Ejecutando: node\node.exe nfc-service.js
+    echo      Esperando 10 segundos...
+    echo.
+    echo -------- SALIDA DEL SERVICIO --------
+    start "" /B "%SCRIPT_DIR%node\node.exe" nfc-service.js
+    timeout /t 10 /nobreak >nul
+    echo -------- FIN SALIDA --------
 ) else (
-    echo      Iniciando con Node.js del sistema...
-    start "" node nfc-service.js
+    echo      [ERROR] No se puede iniciar - node.exe no existe
 )
-timeout /t 5 /nobreak >nul
 
 echo.
-echo [7] Verificando nuevamente puerto 3001...
-netstat -ano | findstr ":3001" >nul 2>&1
+echo [7/7] Verificacion final...
+echo.
+timeout /t 3 /nobreak >nul
+
+netstat -ano | findstr ":47321" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo      [OK] Servicio iniciado correctamente
+    echo      [OK] Servicio corriendo en puerto 47321
+    curl -s http://127.0.0.1:47321/ping 2>nul
 ) else (
-    echo      [ERROR] El servicio no se pudo iniciar
-    echo      Revisa los logs para mas informacion
+    echo      [ERROR] El servicio no esta corriendo
+    echo.
+    echo      SOLUCION: Revisa los errores arriba.
+    echo      Si dice "NODE_MODULE_VERSION", las versiones
+    echo      de Node.js no coinciden.
 )
 
 echo.
 echo ================================================
+echo.
 pause

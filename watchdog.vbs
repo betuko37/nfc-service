@@ -72,7 +72,7 @@ End Function
 ' Función para verificar si el servicio responde por HTTP
 Function IsServiceResponding()
     Dim http, url
-    url = "http://localhost:3001/status"
+    url = "http://127.0.0.1:47321/ping"
     
     On Error Resume Next
     Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
@@ -122,7 +122,7 @@ End Sub
 
 WriteLog "=========================================="
 WriteLog "WATCHDOG NFC SERVICE INICIADO"
-WriteLog "Monitoreando: " & exePath
+WriteLog "Monitoreando: http://127.0.0.1:47321/ping"
 WriteLog "Intervalo: " & (checkInterval / 1000) & " segundos"
 WriteLog "=========================================="
 
@@ -140,7 +140,7 @@ Do While True
     
     ' Verificar si el servicio responde por HTTP
     If Not IsServiceResponding() Then
-        WriteLog "ALERTA: Servicio no responde en puerto 3001"
+        WriteLog "ALERTA: Servicio no responde en puerto 47321"
         
         ' Matar procesos node que puedan estar zombie
         On Error Resume Next

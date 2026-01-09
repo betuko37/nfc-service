@@ -52,7 +52,7 @@ try {
   console.error('[ERROR] No se pudo inicializar Express:', error.message);
 }
 
-const PORT = 3001;
+const PORT = 47321;
 let lastCardId = null;
 let isReaderConnected = false;
 let serviceStartTime = Date.now();
@@ -188,7 +188,9 @@ function safeReconnect() {
   }, 2000);
 }
 
-// Inicializar el sistema NFC
+// Inicializar el sistema NFC (NO BLOQUEANTE)
+let nfcInitTimeout = null;
+
 function initializeNFC() {
   if (nfcInstance) {
     // Ya hay una instancia, no crear otra
@@ -197,39 +199,64 @@ function initializeNFC() {
   
   addLog('info', 'Inicializando sistema NFC...');
   
-  try {
-    nfcInstance = new NFC();
-    
-    // Manejar errores del sistema NFC
-    nfcInstance.on('error', (error) => {
-      const msg = error.message || '';
+  // Timeout de seguridad: si tarda más de 30 segundos, reintentar
+  if (nfcInitTimeout) clearTimeout(nfcInitTimeout);
+  nfcInitTimeout = setTimeout(() => {
+    if (!nfcInstance) {
+      addLog('warning', 'Timeout en inicialización NFC - reintentando...');
+      initializeNFC();
+    }
+  }, 30000);
+  
+  // Usar setImmediate para NO BLOQUEAR el event loop
+  // Esto permite que el servidor HTTP siga respondiendo
+  setImmediate(() => {
+    try {
+      nfcInstance = new NFC();
       
-      // Ignorar errores de SCardCancel (son normales al cerrar)
-      if (msg.includes('SCardCancel') || msg.includes('0x80100002')) {
-        return; // Ignorar silenciosamente
+      // Cancelar timeout si se inicializó correctamente
+      if (nfcInitTimeout) {
+        clearTimeout(nfcInitTimeout);
+        nfcInitTimeout = null;
       }
       
-      addLog('error', `Error en sistema NFC: ${msg}`);
-    });
-    
-    // Manejar conexión de lector
-    nfcInstance.on('reader', reader => {
-      handleReaderConnected(reader);
-    });
-    
-    addLog('success', 'Sistema NFC inicializado correctamente');
-    
-  } catch (error) {
-    addLog('error', `Error al inicializar NFC: ${error.message}`);
-    nfcInstance = null;
-    
-    // Reintentar en 10 segundos
-    setTimeout(() => {
-      if (!nfcInstance) {
-        initializeNFC();
+      // Manejar errores del sistema NFC
+      nfcInstance.on('error', (error) => {
+        const msg = error.message || '';
+        
+        // Ignorar errores de SCardCancel (son normales al cerrar)
+        if (msg.includes('SCardCancel') || msg.includes('0x80100002')) {
+          return; // Ignorar silenciosamente
+        }
+        
+        addLog('error', `Error en sistema NFC: ${msg}`);
+      });
+      
+      // Manejar conexión de lector
+      nfcInstance.on('reader', reader => {
+        handleReaderConnected(reader);
+      });
+      
+      addLog('success', 'Sistema NFC inicializado correctamente');
+      
+    } catch (error) {
+      addLog('error', `Error al inicializar NFC: ${error.message}`);
+      nfcInstance = null;
+      
+      // Cancelar timeout
+      if (nfcInitTimeout) {
+        clearTimeout(nfcInitTimeout);
+        nfcInitTimeout = null;
       }
-    }, 10000);
-  }
+      
+      // Reintentar en 10 segundos
+      setTimeout(() => {
+        if (!nfcInstance) {
+          initializeNFC();
+        }
+      }, 10000);
+    }
+  });
 }
 
 function handleReaderConnected(reader) {
@@ -297,8 +324,8 @@ setInterval(() => {
   }
 }, 15000);
 
-// Inicializar NFC al arrancar
-initializeNFC();
+// NFC se inicializará después de que el servidor HTTP esté listo
+// (ver más abajo en app.listen)
 
 // ============================================
 // ENDPOINTS HTTP
@@ -310,6 +337,12 @@ app.get('/last-card', (req, res) => {
     readerConnected: isReaderConnected
   });
   lastCardId = null;
+});
+
+// Endpoint /ping - SIEMPRE responde, no depende del NFC
+// Usado para verificar que el servidor HTTP está funcionando
+app.get('/ping', (req, res) => {
+  res.send('pong');
 });
 
 app.get('/status', (req, res) => {
@@ -414,14 +447,14 @@ app.get('/', serveConsole);
 // INICIO DEL SERVIDOR CON MANEJO DE ERRORES
 // ============================================
 try {
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     addLog('info', `Servicio NFC v2.1-stable iniciado en puerto ${PORT}`);
     addLog('info', 'Esperando lector ACR122U...');
     console.log(`\n==========================================`);
     console.log(`  SERVICIO NFC v2.1-STABLE`);
     console.log(`==========================================`);
     console.log(`  Puerto: ${PORT}`);
-    console.log(`  Consola: http://localhost:${PORT}/console`);
+    console.log(`  Consola: http://127.0.0.1:${PORT}/console`);
     console.log(`  `);
     console.log(`  [OK] Auto-reconexion: CONTROLADA`);
     console.log(`  [OK] Cooldown: 10 segundos`);
@@ -429,6 +462,12 @@ try {
     console.log(`  `);
     console.log(`  Esperando lector ACR122U...`);
     console.log(`==========================================\n`);
+    
+    // Inicializar NFC DESPUÉS de que el servidor HTTP esté listo
+    // Esto asegura que el endpoint /status siempre esté disponible
+    setTimeout(() => {
+      initializeNFC();
+    }, 1000);
   });
 
   server.on('error', (error) => {

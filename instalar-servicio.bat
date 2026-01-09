@@ -98,9 +98,9 @@ timeout /t 8 /nobreak >nul
 set "INTENTOS=0"
 :verificar_puerto
 set /a INTENTOS+=1
-netstat -ano 2>nul | findstr ":3001" >nul 2>&1
+netstat -ano 2>nul | findstr ":47321" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [OK] Servicio NFC corriendo en puerto 3001
+    echo [OK] Servicio NFC corriendo en puerto 47321
     goto :puerto_ok
 )
 if %INTENTOS% lss 10 (
@@ -108,7 +108,7 @@ if %INTENTOS% lss 10 (
     timeout /t 3 /nobreak >nul
     goto :verificar_puerto
 )
-echo [WARN] El servicio no responde en puerto 3001
+echo [WARN] El servicio no responde en puerto 47321
 echo      Revisa el log en: %SCRIPT_DIR%inicio.log
 
 :puerto_ok
@@ -127,11 +127,11 @@ if not "%1"=="silent" (
     echo.
     
     :: Verificar puerto una vez mas
-    netstat -ano 2>nul | findstr ":3001" >nul 2>&1
+    netstat -ano 2>nul | findstr ":47321" >nul 2>&1
     if %errorlevel% equ 0 (
-        echo   [OK] Servicio NFC corriendo en puerto 3001
+        echo   [OK] Servicio NFC corriendo en puerto 47321
     ) else (
-        echo   [WARN] Servicio no detectado en puerto 3001
+        echo   [WARN] Servicio no detectado en puerto 47321
         echo          Puede estar iniciando, espera unos segundos
     )
     
@@ -167,9 +167,9 @@ if not "%1"=="silent" (
     echo   [+] Servicio completamente oculto
     echo.
     echo ACCESOS WEB:
-    echo   Consola: http://localhost:3001/console
-    echo   Estado:  http://localhost:3001/status
-    echo   Logs:    http://localhost:3001/logs
+    echo   Consola: http://127.0.0.1:47321/console
+    echo   Estado:  http://127.0.0.1:47321/status
+    echo   Logs:    http://127.0.0.1:47321/logs
     echo.
     echo NOTA: Si el servicio no responde, ejecuta:
     echo   diagnostico.bat

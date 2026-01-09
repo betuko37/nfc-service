@@ -39,9 +39,8 @@ Source: "console.html"; DestDir: "{app}"; Flags: ignoreversion
 ; Carpeta node_modules REQUERIDA para bindings nativos
 Source: "node_modules\*"; DestDir: "{app}\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Node.js portable (no requiere instalación de Node en el sistema)
-Source: "node-portable\node.exe"; DestDir: "{app}\node"; Flags: ignoreversion
-Source: "node-portable\node_modules\*"; DestDir: "{app}\node\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Node.js portable COMPLETO (no requiere instalación de Node en el sistema)
+Source: "node-portable\*"; DestDir: "{app}\node"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Archivos del Driver (se copian a temporal para instalar)
 Source: "ACS_Unified_Driver_MSI_Win_4280_P\*"; DestDir: "{tmp}\Driver"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -65,5 +64,5 @@ Filename: "{app}\desinstalar-servicio.bat"; Parameters: "silent"; Flags: waitunt
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Icons]
-Name: "{commonprograms}\{#MyAppName}"; Filename: "http://localhost:3001/console"
-Name: "{commondesktop}\{#MyAppName}"; Filename: "http://localhost:3001/console"; Tasks: desktopicon
+Name: "{commonprograms}\{#MyAppName}"; Filename: "http://127.0.0.1:47321/console"
+Name: "{commondesktop}\{#MyAppName}"; Filename: "http://127.0.0.1:47321/console"; Tasks: desktopicon

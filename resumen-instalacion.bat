@@ -7,45 +7,123 @@ set "SCRIPT_DIR=%~dp0"
 
 echo.
 echo ================================================
-echo    INSTALACION COMPLETADA EXITOSAMENTE
+echo    VERIFICANDO INSTALACION NFC SERVICE
 echo ================================================
 echo.
 
-echo VERIFICACION FINAL:
+:: Esperar un poco para que el servicio inicie
+echo Esperando que el servicio inicie...
+timeout /t 5 /nobreak >nul
+
+echo.
+echo VERIFICACION:
 echo.
 
-:: Verificar puerto
-netstat -ano 2>nul | findstr ":3001" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo   [OK] Servicio NFC corriendo en puerto 3001
+:: Verificar que existe node portable
+if exist "%SCRIPT_DIR%node\node.exe" (
+    echo   [OK] Node.js portable instalado
+    "%SCRIPT_DIR%node\node.exe" --version 2>nul
 ) else (
-    echo   [WARN] Servicio no detectado en puerto 3001
-    echo          Puede estar iniciando, espera unos segundos
+    echo   [ERROR] Node.js portable NO encontrado
+    echo          Ruta esperada: %SCRIPT_DIR%node\node.exe
+    goto :error_encontrado
 )
 
-:: Verificar procesos
-tasklist | findstr /i "node.exe" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo   [OK] Proceso Node.js activo
+:: Verificar que existe nfc-service.js
+if exist "%SCRIPT_DIR%nfc-service.js" (
+    echo   [OK] nfc-service.js encontrado
 ) else (
-    echo   [WARN] Proceso Node.js no detectado
+    echo   [ERROR] nfc-service.js NO encontrado
+    goto :error_encontrado
 )
 
-tasklist | findstr /i "wscript.exe" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo   [OK] Watchdog activo
+:: Verificar que existe node_modules
+if exist "%SCRIPT_DIR%node_modules" (
+    echo   [OK] node_modules encontrado
 ) else (
-    echo   [WARN] Watchdog no detectado
+    echo   [ERROR] node_modules NO encontrado
+    goto :error_encontrado
 )
 
-:: Verificar accesos directos
-set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-if exist "%STARTUP%\NFC-Service.lnk" (
-    echo   [OK] Inicio automatico configurado
-) else (
-    echo   [ERROR] Inicio automatico no configurado
+echo.
+echo Intentando conectar al servicio...
+
+:: Intentar conectar al servicio con curl o powershell
+curl -s -o nul -w "%%{http_code}" http://127.0.0.1:47321/ping > "%TEMP%\nfc_status.txt" 2>nul
+set /p HTTP_CODE=<"%TEMP%\nfc_status.txt"
+del "%TEMP%\nfc_status.txt" 2>nul
+
+if "%HTTP_CODE%"=="200" (
+    echo   [OK] Servicio respondiendo en puerto 47321
+    echo.
+    echo ================================================
+    echo    INSTALACION COMPLETADA EXITOSAMENTE
+    echo ================================================
+    color 0A
+    goto :mostrar_info
 )
 
+:: Si curl no funciona, intentar con powershell
+powershell -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:47321/ping' -UseBasicParsing -TimeoutSec 3; Write-Host 'OK' } catch { Write-Host 'ERROR' }" > "%TEMP%\nfc_ps.txt" 2>nul
+set /p PS_RESULT=<"%TEMP%\nfc_ps.txt"
+del "%TEMP%\nfc_ps.txt" 2>nul
+
+if "%PS_RESULT%"=="OK" (
+    echo   [OK] Servicio respondiendo en puerto 47321
+    echo.
+    echo ================================================
+    echo    INSTALACION COMPLETADA EXITOSAMENTE
+    echo ================================================
+    color 0A
+    goto :mostrar_info
+)
+
+:: El servicio no responde, intentar iniciarlo manualmente
+echo   [WARN] Servicio no responde, intentando iniciar...
+echo.
+
+cd /d "%SCRIPT_DIR%"
+start "" /B "%SCRIPT_DIR%node\node.exe" nfc-service.js
+echo Esperando 8 segundos...
+timeout /t 8 /nobreak >nul
+
+:: Verificar de nuevo
+powershell -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:47321/ping' -UseBasicParsing -TimeoutSec 3; Write-Host 'OK' } catch { Write-Host 'ERROR' }" > "%TEMP%\nfc_ps2.txt" 2>nul
+set /p PS_RESULT2=<"%TEMP%\nfc_ps2.txt"
+del "%TEMP%\nfc_ps2.txt" 2>nul
+
+if "%PS_RESULT2%"=="OK" (
+    echo   [OK] Servicio iniciado correctamente
+    echo.
+    echo ================================================
+    echo    INSTALACION COMPLETADA EXITOSAMENTE
+    echo ================================================
+    color 0A
+    goto :mostrar_info
+)
+
+:error_encontrado
+color 0C
+echo.
+echo ================================================
+echo    ERROR: EL SERVICIO NO PUDO INICIAR
+echo ================================================
+echo.
+echo Posibles causas:
+echo   - Archivos faltantes
+echo   - Puerto 47321 en uso por otro programa
+echo   - Error en el servicio
+echo.
+echo Para diagnosticar, ejecuta:
+echo   %SCRIPT_DIR%diagnostico.bat
+echo.
+echo O intenta iniciar manualmente:
+echo   cd "%SCRIPT_DIR%"
+echo   node\node.exe nfc-service.js
+echo.
+goto :fin
+
+:mostrar_info
 echo.
 echo CARACTERISTICAS INSTALADAS:
 echo   [+] Inicio automatico con Windows
@@ -55,13 +133,12 @@ echo   [+] Reconexion NFC automatica
 echo   [+] Servicio completamente oculto
 echo.
 echo ACCESOS WEB:
-echo   Consola: http://localhost:3001/console
-echo   Estado:  http://localhost:3001/status
-echo   Logs:    http://localhost:3001/logs
+echo   Consola: http://127.0.0.1:47321/console
+echo   Estado:  http://127.0.0.1:47321/ping
+echo   Logs:    http://127.0.0.1:47321/logs
 echo.
-echo NOTA: Si el servicio no responde, ejecuta:
-echo   diagnostico.bat
-echo.
+
+:fin
 echo ================================================
 echo.
 echo Presiona ENTER para cerrar esta ventana...
