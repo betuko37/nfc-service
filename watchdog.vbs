@@ -88,11 +88,29 @@ Function IsServiceResponding()
     On Error Goto 0
 End Function
 
+' Función para matar TODOS los procesos node.exe
+Sub KillAllNodeProcesses()
+    WriteLog "Matando todos los procesos node.exe..."
+    
+    On Error Resume Next
+    ' Matar TODOS los procesos node.exe sin filtros
+    WshShell.Run "taskkill /F /IM node.exe", 0, True
+    
+    If Err.Number = 0 Then
+        WriteLog "Procesos node.exe terminados"
+        WScript.Sleep 2000 ' Esperar 2 segundos
+    End If
+    On Error Goto 0
+End Sub
+
 ' Función para iniciar el servicio (OCULTO)
 Sub StartService()
     WriteLog "Iniciando servicio NFC (oculto)..."
     
     On Error Resume Next
+    
+    ' Primero, matar cualquier proceso node.exe existente
+    KillAllNodeProcesses()
     
     ' Cambiar al directorio del script
     WshShell.CurrentDirectory = scriptPath
@@ -142,14 +160,14 @@ Do While True
     If Not IsServiceResponding() Then
         WriteLog "ALERTA: Servicio no responde en puerto 47321"
         
-        ' Matar procesos node que puedan estar zombie
+        ' Matar TODOS los procesos node.exe (sin filtro de título)
         On Error Resume Next
-        WshShell.Run "taskkill /F /IM node.exe /FI ""WINDOWTITLE eq nfc*""", 0, True
+        WshShell.Run "taskkill /F /IM node.exe", 0, True
         On Error Goto 0
         
         WScript.Sleep 2000
         StartService
-        WScript.Sleep 5000
+        WScript.Sleep 15000  ' Aumentado de 5 a 15 segundos
     End If
     
     ' Si hay límite de reintentos, verificar

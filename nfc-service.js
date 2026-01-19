@@ -66,6 +66,8 @@ let isReconnecting = false;          // Evita reconexiones simultáneas
 let reconnectTimeout = null;         // Referencia al timeout de reconexión
 let lastReconnectTime = 0;           // Última vez que se reconectó
 const RECONNECT_COOLDOWN = 10000;    // 10 segundos mínimo entre reconexiones forzadas
+let consecutiveFailedAttempts = 0;   // Contador de intentos fallidos consecutivos
+const MAX_FAILED_ATTEMPTS = 20;      // 20 intentos = 5 minutos (cada 15 segundos)
 
 // Sistema de logs
 const logs = [];
@@ -239,6 +241,15 @@ function initializeNFC() {
       
       addLog('success', 'Sistema NFC inicializado correctamente');
       
+      // IMPORTANTE: El módulo nfc-pcsc solo detecta lectores que se conectan
+      // DESPUÉS de inicializar. Si el lector ya está conectado al iniciar el servicio,
+      // es necesario desconectarlo y reconectarlo UNA VEZ para que sea detectado.
+      // Después de esa primera reconexión, el servicio detectará automáticamente
+      // todas las conexiones/desconexiones futuras.
+      
+      // Si después de 20 intentos (5 minutos) no se detecta ningún lector,
+      // el servicio reiniciará automáticamente el módulo NFC.
+      
     } catch (error) {
       addLog('error', `Error al inicializar NFC: ${error.message}`);
       nfcInstance = null;
@@ -264,6 +275,7 @@ function handleReaderConnected(reader) {
   isReaderConnected = true;
   currentReader = reader;
   reconnectAttempts = 0;
+  consecutiveFailedAttempts = 0; // Resetear contador de intentos fallidos
   lastNfcActivity = Date.now();
 
   reader.on('card', card => {
@@ -311,10 +323,30 @@ function handleReaderConnected(reader) {
 setInterval(() => {
   if (!isReaderConnected && !isReconnecting) {
     reconnectAttempts++;
+    consecutiveFailedAttempts++;
     
     // Log cada 4 intentos (cada minuto aprox)
     if (reconnectAttempts % 4 === 1) {
       addLog('info', `Buscando lector NFC... (Intento ${reconnectAttempts})`);
+    }
+    
+    // Reinicio forzado después de muchos intentos fallidos
+    if (consecutiveFailedAttempts >= MAX_FAILED_ATTEMPTS) {
+      addLog('warning', `Demasiados intentos fallidos (${consecutiveFailedAttempts}) - reiniciando módulo NFC completo...`);
+      
+      // Forzar cierre completo de la instancia NFC
+      if (nfcInstance) {
+        try { 
+          nfcInstance.close(); 
+          addLog('info', 'Instancia NFC cerrada forzadamente');
+        } catch (e) {
+          addLog('warning', 'Error al cerrar instancia NFC: ' + e.message);
+        }
+        nfcInstance = null;
+      }
+      
+      consecutiveFailedAttempts = 0;
+      addLog('info', 'Reiniciando módulo NFC desde cero...');
     }
     
     // Si no hay instancia NFC, crear una
@@ -465,9 +497,11 @@ try {
     
     // Inicializar NFC DESPUÉS de que el servidor HTTP esté listo
     // Esto asegura que el endpoint /status siempre esté disponible
+    // Delay de 10 segundos para dar tiempo a Windows de reconocer completamente el lector USB
+    // y evitar problemas cuando el lector está conectado antes de iniciar el servicio
     setTimeout(() => {
       initializeNFC();
-    }, 1000);
+    }, 10000);
   });
 
   server.on('error', (error) => {
