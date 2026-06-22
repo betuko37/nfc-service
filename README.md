@@ -20,14 +20,50 @@ Servicio REST para leer tarjetas NFC usando el lector ACR122U. El servicio detec
 npm install
 ```
 
-3. **Conectar el lector ACR122U** a tu computadora
+3. **Si usas macOS, validar PC/SC y driver CCID**
+   - Instala el driver oficial ACS para macOS (el que ya tienes en este repo).
+   - Reinicia el equipo después de instalar el driver (recomendado).
+   - Verifica que el servicio PC/SC esté disponible:
+```bash
+pcsctest
+```
+   Si ves que detecta el lector, el sistema está listo.
 
-4. **Iniciar el servicio:**
+4. **Conectar el lector ACR122U** a tu computadora
+
+5. **Iniciar el servicio:**
 ```bash
 npm start
 ```
 
-El servicio se iniciará en el puerto `3001` por defecto.
+El servicio se iniciará en el puerto `47321` por defecto.
+
+## 🍎 Instalador macOS (driver + servicio auto inicio)
+
+Si quieres una instalacion estilo "setup" (como en Windows), usa:
+
+```bash
+bash ./macos/install-macos.command
+```
+
+Este instalador:
+- instala el driver ACS (`acsccid_installer.pkg`)
+- crea una instalacion local en `~/.nfc-service`
+- descarga un runtime Node LTS compatible en `~/.nfc-service/runtime` (no depende del Node del sistema)
+- instala dependencias Node para macOS con ese runtime
+- registra auto inicio con `launchd`
+- levanta el servicio en segundo plano
+
+### Desinstalar en macOS
+
+```bash
+bash ./macos/uninstall-macos.command
+```
+
+Logs del servicio en macOS:
+- `~/.nfc-service/logs/service.log`
+- `~/.nfc-service/logs/launchd.err.log`
+- `~/.nfc-service/logs/launchd.out.log`
 
 ## 📡 API Endpoints
 
@@ -45,7 +81,7 @@ Obtiene la última tarjeta detectada. El ID se limpia automáticamente después 
 
 **Ejemplo:**
 ```bash
-curl http://localhost:3001/last-card
+curl http://localhost:47321/last-card
 ```
 
 ### `GET /status`
@@ -63,7 +99,7 @@ Obtiene el estado del servicio y del lector.
 
 **Ejemplo:**
 ```bash
-curl http://localhost:3001/status
+curl http://localhost:47321/status
 ```
 
 ### `GET /logs`
@@ -86,7 +122,7 @@ Obtiene los logs del servicio (últimos 100 por defecto).
 
 **Ejemplo:**
 ```bash
-curl http://localhost:3001/logs?limit=50
+curl http://localhost:47321/logs?limit=50
 ```
 
 ### `POST /logs/clear`
@@ -95,7 +131,7 @@ Limpia todos los logs almacenados.
 
 **Ejemplo:**
 ```bash
-curl -X POST http://localhost:3001/logs/clear
+curl -X POST http://localhost:47321/logs/clear
 ```
 
 ### `GET /console`
@@ -103,7 +139,7 @@ curl -X POST http://localhost:3001/logs/clear
 Interfaz web para visualizar los logs en tiempo real.
 
 **Acceso:**
-Abre en tu navegador: `http://localhost:3001/console`
+Abre en tu navegador: `http://localhost:47321/console`
 
 ## 🖥️ Consola de Logs
 
@@ -118,7 +154,7 @@ npm start
 
 2. Abre tu navegador y ve a:
 ```
-http://localhost:3001/console
+http://localhost:47321/console
 ```
 
 ### Características de la consola
@@ -151,7 +187,7 @@ function NFCCardReader() {
   useEffect(() => {
     const fetchCard = async () => {
       try {
-        const response = await fetch('http://localhost:3001/last-card');
+        const response = await fetch('http://localhost:47321/last-card');
         const data = await response.json();
         
         if (data.cardId) {
@@ -199,7 +235,7 @@ export default NFCCardReader;
 Edita la variable `PORT` en `nfc-service.js`:
 
 ```javascript
-const PORT = 3001; // Cambia este valor
+const PORT = 47321; // Cambia este valor
 ```
 
 ### Formato del ID
@@ -241,9 +277,16 @@ En sistemas Unix, puede ser necesario ejecutar con permisos de administrador:
 sudo npm start
 ```
 
+### macOS no detecta el lector
+
+1. Verifica que `pcsctest` vea el lector conectado
+2. Si no aparece, reinstala el driver ACS y reconecta el USB
+3. Reinicia el servicio NFC (`npm start`) después de reconectar el lector
+4. Consulta `GET /diagnostic` para confirmar que el servicio detectó `platform: "macOS"`
+
 ### Puerto en uso
 
-Si el puerto 3001 está ocupado, cambia el `PORT` en `nfc-service.js`.
+Si el puerto 47321 está ocupado, cambia el `PORT` en `nfc-service.js`.
 
 ## 📝 Formato del ID
 

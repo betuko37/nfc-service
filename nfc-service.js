@@ -24,7 +24,7 @@ process.stdin.on('error', () => {});
 // ============================================
 // CARGA DE MÓDULOS CON MANEJO DE ERRORES
 // ============================================
-let NFC, express, cors, fs, path;
+let NFC, express, cors, fs, path, os;
 
 try {
   NFC = require('nfc-pcsc').NFC;
@@ -32,6 +32,7 @@ try {
   cors = require('cors');
   fs = require('fs');
   path = require('path');
+  os = require('os');
 } catch (error) {
   console.error('[ERROR FATAL] No se pudieron cargar los módulos:', error.message);
   console.error('Asegúrate de que node_modules esté presente o usa el ejecutable compilado.');
@@ -53,6 +54,18 @@ try {
 }
 
 const PORT = 47321;
+const PLATFORM = process.platform;
+const IS_WINDOWS = PLATFORM === 'win32';
+const IS_MAC = PLATFORM === 'darwin';
+const NFC_STARTUP_DELAY_MS = IS_WINDOWS ? 10000 : 2500;
+const READER_NAME = 'ACR122U';
+
+function getPlatformLabel() {
+  if (IS_WINDOWS) return 'Windows';
+  if (IS_MAC) return 'macOS';
+  return os ? os.platform() : PLATFORM;
+}
+
 let lastCardId = null;
 let isReaderConnected = false;
 let serviceStartTime = Date.now();
@@ -200,6 +213,9 @@ function initializeNFC() {
   }
   
   addLog('info', 'Inicializando sistema NFC...');
+  if (IS_MAC) {
+    addLog('info', 'Modo macOS detectado: usando stack PC/SC del sistema');
+  }
   
   // Timeout de seguridad: si tarda más de 30 segundos, reintentar
   if (nfcInitTimeout) clearTimeout(nfcInitTimeout);
@@ -280,6 +296,11 @@ function handleReaderConnected(reader) {
 
   reader.on('card', card => {
     lastNfcActivity = Date.now();
+    if (!card || !card.uid) {
+      addLog('warning', 'Tarjeta detectada sin UID legible');
+      return;
+    }
+
     const cardId = card.uid.toUpperCase().match(/.{1,2}/g).join(':');
     addLog('success', `Tarjeta detectada: ${cardId}`);
     lastCardId = cardId;
@@ -404,6 +425,7 @@ app.get('/diagnostic', (req, res) => {
   res.json({
     service: 'NFC Service',
     version: '2.1-stable',
+    platform: getPlatformLabel(),
     endpoints: ['/status', '/last-card', '/logs', '/logs/clear', '/console', '/restart-nfc', '/'],
     logsCount: logs.length,
     readerConnected: isReaderConnected,
@@ -481,10 +503,12 @@ app.get('/', serveConsole);
 try {
   const server = app.listen(PORT, '0.0.0.0', () => {
     addLog('info', `Servicio NFC v2.1-stable iniciado en puerto ${PORT}`);
-    addLog('info', 'Esperando lector ACR122U...');
+    addLog('info', `Plataforma detectada: ${getPlatformLabel()}`);
+    addLog('info', `Esperando lector ${READER_NAME}...`);
     console.log(`\n==========================================`);
     console.log(`  SERVICIO NFC v2.1-STABLE`);
     console.log(`==========================================`);
+    console.log(`  Plataforma: ${getPlatformLabel()}`);
     console.log(`  Puerto: ${PORT}`);
     console.log(`  Consola: http://127.0.0.1:${PORT}/console`);
     console.log(`  `);
@@ -492,16 +516,16 @@ try {
     console.log(`  [OK] Cooldown: 10 segundos`);
     console.log(`  [OK] Deteccion suspension: ACTIVADA`);
     console.log(`  `);
-    console.log(`  Esperando lector ACR122U...`);
+    console.log(`  Esperando lector ${READER_NAME}...`);
     console.log(`==========================================\n`);
     
     // Inicializar NFC DESPUÉS de que el servidor HTTP esté listo
     // Esto asegura que el endpoint /status siempre esté disponible
-    // Delay de 10 segundos para dar tiempo a Windows de reconocer completamente el lector USB
-    // y evitar problemas cuando el lector está conectado antes de iniciar el servicio
+    // En Windows se mantiene el delay largo para compatibilidad total con el comportamiento actual.
+    // En macOS y otros Unix se usa un delay corto para iniciar lectura más rápido.
     setTimeout(() => {
       initializeNFC();
-    }, 10000);
+    }, NFC_STARTUP_DELAY_MS);
   });
 
   server.on('error', (error) => {
