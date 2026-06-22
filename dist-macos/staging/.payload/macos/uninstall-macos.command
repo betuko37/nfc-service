@@ -29,11 +29,14 @@ rm -f "${DESKTOP_SHORTCUT}" "${DESKTOP_LEGACY_HTML}"
 echo "[OK] Acceso directo eliminado"
 
 echo
-echo "[4/5] Eliminando app del instalador en Applications..."
+echo "[4/5] Eliminando accesos directos y apps en Applications..."
 pkill -f "NFC Service Installer.app" >/dev/null 2>&1 || true
+pkill -f "Desinstalar NFC Service.app" >/dev/null 2>&1 || true
 pkill -f "install-macos.command" >/dev/null 2>&1 || true
 rm -rf "${APPLICATIONS_APP}"
-echo "[OK] App de instalador eliminada (si existia)"
+rm -rf "/Applications/Desinstalar NFC Service.app"
+rm -f "/Applications/Desinstalar NFC Service.command"
+echo "[OK] Accesos directos y apps en Applications eliminados"
 
 echo
 echo "[5/5] Driver ACS"

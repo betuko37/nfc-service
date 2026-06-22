@@ -237,6 +237,80 @@ cat > "${DESKTOP_SHORTCUT}" <<'EOF'
 EOF
 echo "[OK] Acceso directo creado: ${DESKTOP_SHORTCUT}"
 
+echo
+echo "[INFO] Copiando desinstalador para acceso futuro..."
+UNINSTALL_DIR="${SERVICE_ROOT}/uninstall"
+mkdir -p "${UNINSTALL_DIR}"
+cp "${SCRIPT_DIR}/uninstall-macos.command" "${UNINSTALL_DIR}/"
+chmod +x "${UNINSTALL_DIR}/uninstall-macos.command"
+
+if [[ -d "${PROJECT_DIR}/acsccid-macosx-bin-1.1.11.1-20240826" ]]; then
+  cp -R "${PROJECT_DIR}/acsccid-macosx-bin-1.1.11.1-20240826" "${SERVICE_ROOT}/"
+fi
+
+echo "[INFO] Creando acceso directo del desinstalador en Applications..."
+pkill -f "Desinstalar NFC Service.app" >/dev/null 2>&1 || true
+rm -rf "/Applications/Desinstalar NFC Service.app"
+
+APP_BUNDLE="/Applications/Desinstalar NFC Service.app"
+mkdir -p "${APP_BUNDLE}/Contents/MacOS"
+mkdir -p "${APP_BUNDLE}/Contents/Resources"
+
+# Escribir Info.plist
+cat > "${APP_BUNDLE}/Contents/Info.plist" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>launch-uninstaller</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.nfcservice.uninstaller</string>
+  <key>CFBundleName</key>
+  <string>Desinstalar NFC Service</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0.0</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.13</string>
+  <key>CFBundleIconFile</key>
+  <string>icon.icns</string>
+  <key>LSUIElement</key>
+  <false/>
+</dict>
+</plist>
+EOF
+
+# Escribir ejecutable del bundle
+cat > "${APP_BUNDLE}/Contents/MacOS/launch-uninstaller" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+UNINSTALL_SCRIPT="${HOME}/.nfc-service/uninstall/uninstall-macos.command"
+
+if [[ ! -f "${UNINSTALL_SCRIPT}" ]]; then
+  /usr/bin/osascript -e 'display alert "Desinstalador NFC Service" message "No se encontró el script de desinstalación en ~/.nfc-service." as critical'
+  exit 1
+fi
+
+/usr/bin/osascript <<APPLESCRIPT
+tell application "Terminal"
+  activate
+  do script "exec bash '${UNINSTALL_SCRIPT}'"
+end tell
+APPLESCRIPT
+EOF
+
+chmod +x "${APP_BUNDLE}/Contents/MacOS/launch-uninstaller"
+
+# Copiar el icono corporativo para que se vea hermoso en Launchpad/Applications
+if [[ -f "${PROJECT_DIR}/macos/assets/dmg-volume-icon.icns" ]]; then
+  cp "${PROJECT_DIR}/macos/assets/dmg-volume-icon.icns" "${APP_BUNDLE}/Contents/Resources/icon.icns"
+fi
+
+echo "[OK] App de desinstalación creada en /Applications"
+
 echo "[INFO] Abriendo consola web..."
 open "http://127.0.0.1:47321/console" >/dev/null 2>&1 || true
 
