@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+INSTALL_STAGING="${HOME}/.nfc-service-install-staging"
 
 SERVICE_ROOT="${HOME}/.nfc-service"
 APP_DIR="${SERVICE_ROOT}/app"
@@ -309,6 +310,22 @@ if [[ -f "${PROJECT_DIR}/macos/assets/dmg-volume-icon.icns" ]]; then
   cp "${PROJECT_DIR}/macos/assets/dmg-volume-icon.icns" "${APP_BUNDLE}/Contents/Resources/icon.icns"
 fi
 
+sign_macos_app_if_available() {
+  local app_path="$1"
+  local identity="${MACOS_SIGN_IDENTITY:-}"
+
+  if [[ -z "${identity}" ]]; then
+    identity="$(security find-identity -v -p codesigning 2>/dev/null | rg 'Developer ID Application' | head -1 | sed -E 's/.*\"([^\"]+)\".*/\1/' || true)"
+  fi
+
+  if [[ -n "${identity}" ]] && command -v codesign >/dev/null 2>&1; then
+    xattr -cr "${app_path}" 2>/dev/null || true
+    codesign --force --deep --sign "${identity}" --timestamp --options runtime "${app_path}" >/dev/null 2>&1 || true
+  fi
+}
+
+sign_macos_app_if_available "${APP_BUNDLE}"
+
 echo "[OK] App de desinstalación creada en /Applications"
 
 echo "[INFO] Abriendo consola web..."
@@ -334,4 +351,8 @@ fi
 
 if [[ -t 0 ]]; then
   read -r -p "Presiona ENTER para cerrar esta ventana..."
+fi
+
+if [[ "${PROJECT_DIR}" == "${INSTALL_STAGING}" ]]; then
+  rm -rf "${INSTALL_STAGING}" >/dev/null 2>&1 || true
 fi

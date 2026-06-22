@@ -1,0 +1,67 @@
+#!/bin/bash
+set -euo pipefail
+
+BUNDLE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+MACOS_DIR="$(cd "$(dirname "$0")" && pwd)"
+INSTALL_STAGING="${HOME}/.nfc-service-install-staging"
+ARCHIVE=""
+
+show_error() {
+  local detail="$1"
+  /usr/bin/osascript -e "display alert \"NFC Service Installer\" message \"${detail}\" as critical"
+}
+
+find_archive() {
+  local volume_root
+  volume_root="$(cd "${MACOS_DIR}/../../.." && pwd)"
+  local candidates=(
+    "${MACOS_DIR}/nfc-service-payload.tar.gz"
+    "${BUNDLE_ROOT}/Resources/nfc-service-payload.tar.gz"
+    "${BUNDLE_ROOT}/MacOS/nfc-service-payload.tar.gz"
+    "${volume_root}/nfc-service-payload.tar.gz"
+    "${HOME}/Downloads/nfc-service-payload.tar.gz"
+  )
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -f "${candidate}" ]]; then
+      ARCHIVE="${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+xattr -cr "${BUNDLE_ROOT}" 2>/dev/null || true
+
+if ! find_archive; then
+  show_error "No se encontró el paquete de instalación. Descarga el DMG completo desde la web (carpeta public/, no src/) y haz doble clic en INSTALAR dentro del DMG, sin arrastrar solo la app."
+  exit 1
+fi
+
+rm -rf "${INSTALL_STAGING}"
+mkdir -p "${INSTALL_STAGING}"
+
+if ! tar -xzf "${ARCHIVE}" -C "${INSTALL_STAGING}" 2>/dev/null; then
+  show_error "El paquete de instalación está dañado. El DMG puede haberse corrompido al subirlo al frontend: usa la carpeta public/ y enlace directo, no src/."
+  exit 1
+fi
+
+INSTALL_SCRIPT="${INSTALL_STAGING}/macos/install-macos.command"
+if [[ ! -f "${INSTALL_SCRIPT}" ]]; then
+  show_error "Faltan archivos del instalador tras extraer. macOS o un antivirus puede haberlos bloqueado."
+  exit 1
+fi
+
+chmod +x "${INSTALL_SCRIPT}" "${INSTALL_STAGING}/macos/"*.command 2>/dev/null || true
+xattr -cr "${INSTALL_STAGING}" 2>/dev/null || true
+
+RUNNER="${INSTALL_STAGING}/run-install.command"
+cat > "${RUNNER}" <<RUNNER_EOF
+#!/bin/bash
+exec bash "${INSTALL_STAGING}/macos/install-macos.command"
+RUNNER_EOF
+chmod +x "${RUNNER}"
+xattr -cr "${RUNNER}" 2>/dev/null || true
+
+# Abrir Terminal con el instalador (no borrar staging aquí: Terminal arranca después).
+open -a Terminal "${RUNNER}"

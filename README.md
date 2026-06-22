@@ -81,13 +81,79 @@ El script crea:
   - `INSTALAR.command` (icono centrado; instrucciones en el fondo del DMG)
 - con fondo personalizado 500x500: logo JORNALPRO arriba, panel de pasos abajo, nubes y siluetas agrícolas
 
+El script crea:
+- `dist-macos/NFC-Service-Installer.dmg`
+- dentro del DMG:
+  - `INSTALAR.app` (aplicación nativa; instrucciones en el fondo del DMG)
+- con fondo personalizado 500x500: logo JORNALPRO arriba, panel de pasos abajo, nubes y siluetas agrícolas
+
 Flujo para usuario final:
 1. Abrir DMG (doble clic)
 2. Doble clic en `INSTALAR`
 3. Se ejecuta `install-macos.command` completo en Terminal
 4. Al terminar: crea acceso en Desktop, abre consola web y deja el servicio en auto inicio
 
-Si ya habias instalado antes, puedes desinstalar completo con:
+### Distribución web (evitar alerta de Gatekeeper)
+
+macOS marca como "no verificado" cualquier archivo descargado de internet que no esté **firmado y notarizado** por Apple. No es un virus: es Gatekeeper.
+
+Para publicar el DMG en tu web sin esa alerta necesitas:
+
+1. Cuenta **Apple Developer** (99 USD/año)
+2. Certificado **Developer ID Application** en tu Mac
+3. Firmar y notarizar al generar el instalador:
+
+```bash
+export MACOS_SIGN_IDENTITY="Developer ID Application: TU EMPRESA (TEAMID)"
+export APPLE_NOTARIZE_APPLE_ID="tu@email.com"
+export APPLE_NOTARIZE_TEAM_ID="TEAMID"
+export APPLE_NOTARIZE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+
+bash ./macos/build-dmg.command
+```
+
+El build firma `INSTALAR.app`, los scripts y el DMG, y envía el DMG a Apple para notarización automática.
+
+Si ya generaste el DMG, solo firma/notariza:
+
+```bash
+bash ./macos/sign-and-notarize.command dist-macos/NFC-Service-Installer.dmg
+```
+
+Sin notarización, el usuario puede abrirlo con clic derecho → **Abrir** (solo la primera vez).
+
+**Nota:** `INSTALAR.app` guarda el instalador como un solo archivo `nfc-service-payload.tar.gz` dentro del bundle (no scripts sueltos). Esto reduce bloqueos de macOS/antivirus al descargar de internet y evita App Translocation.
+
+La solución definitiva para que no aparezca “malicioso” al descargar es **firmar y notarizar** el DMG con Apple Developer.
+
+### Publicar el DMG en tu frontend (React / Vite / Next)
+
+**No pongas el DMG en `src/`** — el bundler puede corromper el archivo binario y el instalador falla.
+
+1. Copia estos archivos a la carpeta **`public/`** de tu frontend (no `src/`):
+
+```
+public/NFC-Service-Installer.dmg
+public/nfc-service-payload.tar.gz   (respaldo; opcional pero recomendado)
+```
+
+2. Enlace directo de descarga (ejemplo React):
+
+```jsx
+<a href="/NFC-Service-Installer.dmg" download="NFC-Service-Installer.dmg">
+  Descargar instalador macOS
+</a>
+```
+
+3. Flujo del usuario:
+   - Descargar el DMG
+   - Abrir el DMG (doble clic)
+   - **Doble clic en INSTALAR** dentro del volumen montado
+   - No arrastrar solo `INSTALAR.app` a Applications (macOS puede quitar archivos internos)
+
+4. Tras publicar, verifica el tamaño del DMG descargado (~1,1 MB). Si es mucho menor, el archivo se corrompió al subirlo.
+
+Si ya habias instalado antes, puedes desinstalar desde **Aplicaciones → Desinstalar NFC Service** o con:
 
 ```bash
 bash ./macos/uninstall-macos.command
