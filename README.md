@@ -47,7 +47,9 @@ bash ./macos/install-macos.command
 ```
 
 Este instalador:
-- instala el driver ACS (`acsccid_installer.pkg`)
+- instala el servicio en modo usuario (sin admin)
+- intenta detectar driver ACS ya instalado
+- si no hay driver, pregunta si deseas instalarlo (ese paso si pide password)
 - crea una instalacion local en `~/.nfc-service`
 - descarga un runtime Node LTS compatible en `~/.nfc-service/runtime` (no depende del Node del sistema)
 - instala dependencias Node para macOS con ese runtime
@@ -64,6 +66,34 @@ Logs del servicio en macOS:
 - `~/.nfc-service/logs/service.log`
 - `~/.nfc-service/logs/launchd.err.log`
 - `~/.nfc-service/logs/launchd.out.log`
+
+### Crear instalador DMG (arrastrar y abrir)
+
+Si ya instalaste `create-dmg` con Homebrew, genera el instalador así:
+
+```bash
+bash ./macos/build-dmg.command
+```
+
+El script crea:
+- `dist-macos/NFC-Service-Installer.dmg`
+- dentro del DMG:
+  - `INSTALAR.command` (icono centrado; instrucciones en el fondo del DMG)
+- con fondo personalizado 500x500: logo JORNALPRO arriba, panel de pasos abajo, nubes y siluetas agrícolas
+
+Flujo para usuario final:
+1. Abrir DMG (doble clic)
+2. Doble clic en `INSTALAR`
+3. Se ejecuta `install-macos.command` completo en Terminal
+4. Al terminar: crea acceso en Desktop, abre consola web y deja el servicio en auto inicio
+
+Si ya habias instalado antes, puedes desinstalar completo con:
+
+```bash
+bash ./macos/uninstall-macos.command
+```
+
+Nota Apple Silicon: `bless --openfolder` no existe en arm64; el build usa `bless --folder`, que es el metodo soportado.
 
 ## 📡 API Endpoints
 
