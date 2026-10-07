@@ -10,7 +10,7 @@
 		</data>
 		<key>Resources/nfc-service-payload.tar.gz</key>
 		<data>
-		26ziLeDQo/AXlQdWawCcjLxOVR8=
+		tMH3/CCMGRYsz2ZmoENAK/0B1Y8=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -19,10 +19,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			93aST9W6xaMNLfM7ij0WhmXilWU=
+			ytFztV8N0kMftUXoDICnjIDdNXo=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"f776924fd5bac5a30d2df33b8a3d168665e29565"</string>
+			<string>cdhash H"cad173b55f0dd2431fb545e80c80a78c80dd357a"</string>
 		</dict>
 		<key>Resources/icon.icns</key>
 		<dict>
@@ -35,7 +35,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			2NHs+fj0Gh9EGUkaAqyKq8e3xbsIe0TMq8ljWOuDubA=
+			qz9XYbbG2yBoNYVXjTHAqA3DjCeoQlVu21zI4JlMn8A=
 			</data>
 		</dict>
 	</dict>

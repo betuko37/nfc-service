@@ -86,6 +86,7 @@ echo "[2/7] Preparando directorio de servicio..."
 mkdir -p "${APP_DIR}" "${LOG_DIR}" "${RUNTIME_DIR}"
 rm -rf "${APP_DIR:?}/"*
 cp "${PROJECT_DIR}/nfc-service.js" "${APP_DIR}/"
+cp "${PROJECT_DIR}/print-agent.js" "${APP_DIR}/"
 cp "${PROJECT_DIR}/console.html" "${APP_DIR}/"
 cp "${PROJECT_DIR}/package.json" "${APP_DIR}/"
 if [[ -f "${PROJECT_DIR}/package-lock.json" ]]; then

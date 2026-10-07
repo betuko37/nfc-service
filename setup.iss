@@ -26,6 +26,7 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 [Files]
 ; Archivo principal y scripts
 Source: "nfc-service.js"; DestDir: "{app}"; Flags: ignoreversion
+Source: "print-agent.js"; DestDir: "{app}"; Flags: ignoreversion
 Source: "package.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "watchdog.vbs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "instalar-servicio.bat"; DestDir: "{app}"; Flags: ignoreversion

@@ -295,6 +295,7 @@ echo "[OK] Assets visuales listos"
 echo
 echo "[2/4] Copiando instalador..."
 cp "${PROJECT_DIR}/nfc-service.js" "${PAYLOAD_DIR}/"
+cp "${PROJECT_DIR}/print-agent.js" "${PAYLOAD_DIR}/"
 cp "${PROJECT_DIR}/console.html" "${PAYLOAD_DIR}/"
 cp "${PROJECT_DIR}/package.json" "${PAYLOAD_DIR}/"
 if [[ -f "${PROJECT_DIR}/package-lock.json" ]]; then
