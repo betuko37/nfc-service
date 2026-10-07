@@ -48,7 +48,12 @@ try {
 let app;
 try {
   app = express();
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Private-Network", "true");
+    next();
+  });
   app.use(cors());
+  app.use(express.json({ limit: "32kb" }));
 } catch (error) {
   console.error('[ERROR] No se pudo inicializar Express:', error.message);
 }
@@ -71,6 +76,7 @@ let isReaderConnected = false;
 let serviceStartTime = Date.now();
 let lastNfcActivity = Date.now();
 let nfcInstance = null;
+let getPrintStatus = () => ({ listening: false, packingCenterId: "", qzReady: false });
 
 // ============================================
 // FLAGS DE CONTROL PARA EVITAR BUCLES
@@ -417,7 +423,8 @@ app.get('/status', (req, res) => {
     uptimeMs: uptimeMs,
     logsAvailable: true,
     logsCount: logs.length,
-    isReconnecting: isReconnecting
+    isReconnecting: isReconnecting,
+    print: getPrintStatus()
   });
 });
 
@@ -426,7 +433,7 @@ app.get('/diagnostic', (req, res) => {
     service: 'NFC Service',
     version: '2.1-stable',
     platform: getPlatformLabel(),
-    endpoints: ['/status', '/last-card', '/logs', '/logs/clear', '/console', '/restart-nfc', '/'],
+    endpoints: ['/status', '/last-card', '/logs', '/logs/clear', '/console', '/restart-nfc', '/print-status', '/print-config', '/'],
     logsCount: logs.length,
     readerConnected: isReaderConnected,
     uptimeMs: Date.now() - serviceStartTime,
@@ -496,6 +503,19 @@ function serveConsole(req, res) {
 
 app.get('/console', serveConsole);
 app.get('/', serveConsole);
+
+// ============================================
+// IMPRESIÓN LOCAL (QZ Tray, sin Chrome)
+// ============================================
+try {
+  const printAgent = require("./print-agent");
+  if (app) {
+    printAgent.start({ app, log: addLog });
+    getPrintStatus = () => printAgent.status();
+  }
+} catch (error) {
+  addLog("warning", `Impresión QZ no disponible: ${error.message}`);
+}
 
 // ============================================
 // INICIO DEL SERVIDOR CON MANEJO DE ERRORES
