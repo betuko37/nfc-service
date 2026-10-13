@@ -50,11 +50,17 @@ Source: "node_modules\*"; DestDir: "{app}\node_modules"; Flags: ignoreversion re
 Source: "node-portable\*"; DestDir: "{app}\node"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Archivos del Driver (se copian a temporal para instalar)
-Source: "ACS_Unified_Driver_MSI_Win_4280_P\*"; DestDir: "{tmp}\Driver"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "ACS_Unified_Driver_MSI_Win_4280_P\*"; DestDir: "{tmp}\Driver"; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
+
+[Code]
+function DriverAvailable(): Boolean;
+begin
+  Result := FileExists(ExpandConstant('{tmp}\Driver\Setup.exe'));
+end;
 
 [Run]
 ; Paso 1: Instalar Driver (Interactivo)
-Filename: "{tmp}\Driver\Setup.exe"; StatusMsg: "Ejecutando instalador de controladores..."; Flags: waituntilterminated
+Filename: "{tmp}\Driver\Setup.exe"; StatusMsg: "Ejecutando instalador de controladores..."; Flags: waituntilterminated; Check: DriverAvailable
 
 ; Paso 2: Instalar servicio con watchdog (pasamos parametro para evitar pause)
 Filename: "{app}\instalar-servicio.bat"; Parameters: "silent"; StatusMsg: "Registrando e iniciando el servicio..."; Flags: waituntilterminated runhidden

@@ -1,0 +1,59 @@
+name: Build Windows NFC Service Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.20.8
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies and compile native NFC module
+        shell: pwsh
+        run: |
+          $env:npm_config_python = (Get-Command python).Source
+          npm ci --omit=dev
+          node -e "if (!require('nfc-pcsc').NFC) { throw 'nfc-pcsc no disponible' }"
+
+      - name: Download portable Node.js
+        shell: pwsh
+        run: |
+          $version = "v18.20.8"
+          $zip = "node-$version-win-x64.zip"
+          Invoke-WebRequest "https://nodejs.org/dist/$version/$zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath .
+          Rename-Item "node-$version-win-x64" "node-portable"
+          Remove-Item $zip
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss'
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: NFC-Service-Windows-Installer
+          path: Instalador_NFC_Service.exe
+          if-no-files-found: error
