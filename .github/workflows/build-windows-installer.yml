@@ -39,6 +39,14 @@ jobs:
       - name: Download portable Node.js
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path "node-portable\node.exe") {
+            Write-Host "node-portable ya existe; se reutiliza."
+            exit 0
+          }
+          if (Test-Path "node-portable") {
+            Remove-Item "node-portable" -Recurse -Force
+          }
           $version = "v18.20.8"
           $zip = "node-$version-win-x64.zip"
           Invoke-WebRequest "https://nodejs.org/dist/$version/$zip" -OutFile $zip
