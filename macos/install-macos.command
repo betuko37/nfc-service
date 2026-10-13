@@ -89,6 +89,7 @@ cp "${PROJECT_DIR}/nfc-service.js" "${APP_DIR}/"
 cp "${PROJECT_DIR}/print-agent.js" "${APP_DIR}/"
 cp "${PROJECT_DIR}/console.html" "${APP_DIR}/"
 cp "${PROJECT_DIR}/package.json" "${APP_DIR}/"
+cp "${PROJECT_DIR}"/tray-*.png "${APP_DIR}/"
 if [[ -f "${PROJECT_DIR}/package-lock.json" ]]; then
   cp "${PROJECT_DIR}/package-lock.json" "${APP_DIR}/"
 fi

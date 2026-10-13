@@ -98,8 +98,10 @@ echo.
 echo [6/7] Intentando iniciar servicio manualmente...
 echo.
 
-:: Matar procesos anteriores
-taskkill /F /IM node.exe >nul 2>&1
+:: Matar únicamente una instancia anterior de este servicio
+for /f "tokens=2" %%i in ('wmic process where "name='node.exe' and commandline like '%%nfc-service.js%%'" get processid 2^>nul ^| findstr [0-9]') do (
+    taskkill /F /PID %%i >nul 2>&1
+)
 timeout /t 2 /nobreak >nul
 
 cd /d "%SCRIPT_DIR%"

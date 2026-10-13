@@ -25,8 +25,14 @@ if not exist "%SCRIPT_DIR%watchdog.vbs" (
 )
 
 echo [1/4] Deteniendo servicios anteriores...
-taskkill /F /IM nfc-service.exe >nul 2>&1
-taskkill /F /IM wscript.exe >nul 2>&1
+schtasks /end /tn "NFC-Service" >nul 2>&1
+schtasks /end /tn "NFC-Watchdog" >nul 2>&1
+for /f "tokens=2" %%i in ('wmic process where "name='node.exe' and commandline like '%%nfc-service.js%%'" get processid 2^>nul ^| findstr [0-9]') do (
+    taskkill /F /PID %%i >nul 2>&1
+)
+for /f "tokens=2" %%i in ('wmic process where "name='wscript.exe' and commandline like '%%watchdog.vbs%%'" get processid 2^>nul ^| findstr [0-9]') do (
+    taskkill /F /PID %%i >nul 2>&1
+)
 timeout /t 1 /nobreak >nul
 echo [OK] Procesos detenidos
 
@@ -35,48 +41,30 @@ echo [2/4] Limpiando configuracion anterior...
 :: Eliminar tareas programadas si existen
 schtasks /delete /tn "NFC-Service" /f >nul 2>&1
 schtasks /delete /tn "NFC-Watchdog" /f >nul 2>&1
-:: Eliminar accesos directos anteriores
+:: Eliminar accesos directos y tareas anteriores
 set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 del "%STARTUP%\NFC-Service.lnk" >nul 2>&1
 del "%STARTUP%\NFC-Watchdog.lnk" >nul 2>&1
 echo [OK] Configuracion limpiada
 
 echo.
-echo [3/4] Creando accesos directos de inicio automatico...
+echo [3/4] Registrando tareas permanentes de Windows...
 
-:: Crear acceso directo para NFC-Service (ejecuta VBS oculto)
-> "%TEMP%\nfc1.vbs" echo Set WS = CreateObject("WScript.Shell")
->> "%TEMP%\nfc1.vbs" echo Set SC = WS.CreateShortcut("%STARTUP%\NFC-Service.lnk")
->> "%TEMP%\nfc1.vbs" echo SC.TargetPath = "wscript.exe"
->> "%TEMP%\nfc1.vbs" echo SC.Arguments = """%SCRIPT_DIR%iniciar-oculto.vbs"""
->> "%TEMP%\nfc1.vbs" echo SC.WorkingDirectory = "%SCRIPT_DIR%"
->> "%TEMP%\nfc1.vbs" echo SC.WindowStyle = 7
->> "%TEMP%\nfc1.vbs" echo SC.Save
-cscript //nologo "%TEMP%\nfc1.vbs" >nul 2>&1
-del "%TEMP%\nfc1.vbs" >nul 2>&1
-
-:: Crear acceso directo para Watchdog
-> "%TEMP%\nfc2.vbs" echo Set WS = CreateObject("WScript.Shell")
->> "%TEMP%\nfc2.vbs" echo Set SC = WS.CreateShortcut("%STARTUP%\NFC-Watchdog.lnk")
->> "%TEMP%\nfc2.vbs" echo SC.TargetPath = "wscript.exe"
->> "%TEMP%\nfc2.vbs" echo SC.Arguments = """%SCRIPT_DIR%watchdog.vbs"""
->> "%TEMP%\nfc2.vbs" echo SC.WorkingDirectory = "%SCRIPT_DIR%"
->> "%TEMP%\nfc2.vbs" echo SC.WindowStyle = 7
->> "%TEMP%\nfc2.vbs" echo SC.Save
-cscript //nologo "%TEMP%\nfc2.vbs" >nul 2>&1
-del "%TEMP%\nfc2.vbs" >nul 2>&1
-
-:: Verificar que se crearon
-if exist "%STARTUP%\NFC-Service.lnk" (
-    echo [OK] Acceso NFC-Service creado
-) else (
-    echo [ERROR] No se pudo crear acceso NFC-Service
+:: Las tareas sobreviven al cierre de CMD y se ejecutan de nuevo después de reiniciar.
+:: Se ejecutan con el usuario actual para que QZ Tray y sus impresoras sean visibles.
+set "WScriptPath=%SystemRoot%\System32\wscript.exe"
+schtasks /create /tn "NFC-Service" /tr "\"%WScriptPath%\" \"%SCRIPT_DIR%iniciar-oculto.vbs\"" /sc onlogon /delay 0000:10 /ru "%USERNAME%" /rl LIMITED /f >nul
+if errorlevel 1 (
+    echo [ERROR] No se pudo registrar NFC-Service
+    exit /b 1
 )
-if exist "%STARTUP%\NFC-Watchdog.lnk" (
-    echo [OK] Acceso NFC-Watchdog creado
-) else (
-    echo [ERROR] No se pudo crear acceso NFC-Watchdog
+schtasks /create /tn "NFC-Watchdog" /tr "\"%WScriptPath%\" \"%SCRIPT_DIR%watchdog.vbs\"" /sc onlogon /delay 0000:30 /ru "%USERNAME%" /rl LIMITED /f >nul
+if errorlevel 1 (
+    echo [ERROR] No se pudo registrar NFC-Watchdog
+    exit /b 1
 )
+echo [OK] NFC-Service registrado para iniciar con Windows
+echo [OK] NFC-Watchdog registrado para reiniciar el servicio si falla
 
 echo.
 echo [4/4] Iniciando servicios...
@@ -89,8 +77,8 @@ if exist "%SCRIPT_DIR%node\node.exe" (
     echo      [WARN] Node.js portable no encontrado, usando del sistema
 )
 
-:: Iniciar servicio OCULTO usando VBScript
-cscript //nologo "%SCRIPT_DIR%iniciar-oculto.vbs"
+:: Iniciar la tarea, no un proceso hijo de esta ventana CMD
+schtasks /run /tn "NFC-Service" >nul 2>&1
 echo      Esperando que inicie el servicio...
 timeout /t 8 /nobreak >nul
 
@@ -112,8 +100,8 @@ echo [WARN] El servicio no responde en puerto 47321
 echo      Revisa el log en: %SCRIPT_DIR%inicio.log
 
 :puerto_ok
-:: Iniciar watchdog usando cmd /c para que persista
-cmd /c start "" wscript.exe "%SCRIPT_DIR%watchdog.vbs"
+:: Iniciar el watchdog mediante la tarea registrada
+schtasks /run /tn "NFC-Watchdog" >nul 2>&1
 echo [OK] Watchdog iniciado
 
 :: Si no es modo silencioso, mostrar resumen final
@@ -152,10 +140,11 @@ if not "%1"=="silent" (
     
     :: Verificar accesos directos
     set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-    if exist "%STARTUP%\NFC-Service.lnk" (
-        echo   [OK] Inicio automatico configurado
-    ) else (
+    schtasks /query /tn "NFC-Service" >nul 2>&1
+    if errorlevel 1 (
         echo   [ERROR] Inicio automatico no configurado
+    ) else (
+        echo   [OK] Inicio automatico configurado en Windows
     )
     
     echo.

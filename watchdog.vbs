@@ -88,16 +88,20 @@ Function IsServiceResponding()
     On Error Goto 0
 End Function
 
-' Función para matar TODOS los procesos node.exe
+' Función para matar únicamente el proceso de este servicio
 Sub KillAllNodeProcesses()
-    WriteLog "Matando todos los procesos node.exe..."
+    WriteLog "Matando el proceso nfc-service..."
     
     On Error Resume Next
-    ' Matar TODOS los procesos node.exe sin filtros
-    WshShell.Run "taskkill /F /IM node.exe", 0, True
+    Dim objWMI, colProcesses, objProcess
+    Set objWMI = GetObject("winmgmts:\\.\root\cimv2")
+    Set colProcesses = objWMI.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name='node.exe' AND CommandLine LIKE '%nfc-service.js%'")
+    For Each objProcess In colProcesses
+        WshShell.Run "taskkill /F /PID " & objProcess.ProcessId, 0, True
+    Next
     
     If Err.Number = 0 Then
-        WriteLog "Procesos node.exe terminados"
+        WriteLog "Proceso nfc-service terminado"
         WScript.Sleep 2000 ' Esperar 2 segundos
     End If
     On Error Goto 0
@@ -160,9 +164,9 @@ Do While True
     If Not IsServiceResponding() Then
         WriteLog "ALERTA: Servicio no responde en puerto 47321"
         
-        ' Matar TODOS los procesos node.exe (sin filtro de título)
+        ' Matar únicamente el proceso nfc-service; no afectar otras aplicaciones Node.
         On Error Resume Next
-        WshShell.Run "taskkill /F /IM node.exe", 0, True
+        KillAllNodeProcesses
         On Error Goto 0
         
         WScript.Sleep 2000

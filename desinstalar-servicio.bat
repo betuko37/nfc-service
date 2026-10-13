@@ -9,8 +9,8 @@ echo ================================================
 echo.
 
 echo [1/4] Deteniendo procesos...
-taskkill /F /IM nfc-service.exe >nul 2>&1
-taskkill /F /IM wscript.exe /FI "WINDOWTITLE eq watchdog*" >nul 2>&1
+schtasks /end /tn "NFC-Service" >nul 2>&1
+schtasks /end /tn "NFC-Watchdog" >nul 2>&1
 
 :: Matar cualquier wscript que este ejecutando watchdog.vbs
 for /f "tokens=2" %%i in ('wmic process where "name='wscript.exe' and commandline like '%%watchdog%%'" get processid 2^>nul ^| findstr [0-9]') do (

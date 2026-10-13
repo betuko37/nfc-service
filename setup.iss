@@ -36,6 +36,12 @@ Source: "iniciar-oculto.vbs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "diagnostico.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "resumen-instalacion.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "console.html"; DestDir: "{app}"; Flags: ignoreversion
+Source: "tray-green.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "tray-yellow.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "tray-red.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "tray-green.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "tray-yellow.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "tray-red.png"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Carpeta node_modules REQUERIDA para bindings nativos
 Source: "node_modules\*"; DestDir: "{app}\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs

@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 BUILD_DIR="${PROJECT_DIR}/dist-macos"
 STAGING_DIR="${BUILD_DIR}/staging"
@@ -191,6 +192,17 @@ build_dmg() {
   echo "[3/4] Generando DMG..."
   rm -f "${DMG_PATH}" "${RW_DMG}"
 
+  if [[ "${SKIP_FINDER_LAYOUT:-0}" == "1" ]]; then
+    hdiutil create \
+      -volname "${VOL_NAME}" \
+      -srcfolder "${STAGING_DIR}" \
+      -format UDZO \
+      -ov \
+      "${DMG_PATH}"
+    echo "[OK] DMG generado sin personalización interactiva de Finder"
+    return 0
+  fi
+
   hdiutil create \
     -volname "${VOL_NAME}" \
     -srcfolder "${STAGING_DIR}" \
@@ -289,7 +301,7 @@ echo "[OK] Directorios listos"
 
 echo
 echo "[1.5/4] Generando assets visuales del DMG..."
-python3 "${PROJECT_DIR}/macos/generate-dmg-assets.py" >/dev/null
+"${PYTHON_BIN}" "${PROJECT_DIR}/macos/generate-dmg-assets.py" >/dev/null
 echo "[OK] Assets visuales listos"
 
 echo
@@ -298,6 +310,7 @@ cp "${PROJECT_DIR}/nfc-service.js" "${PAYLOAD_DIR}/"
 cp "${PROJECT_DIR}/print-agent.js" "${PAYLOAD_DIR}/"
 cp "${PROJECT_DIR}/console.html" "${PAYLOAD_DIR}/"
 cp "${PROJECT_DIR}/package.json" "${PAYLOAD_DIR}/"
+cp "${PROJECT_DIR}"/tray-*.png "${PAYLOAD_DIR}/"
 if [[ -f "${PROJECT_DIR}/package-lock.json" ]]; then
   cp "${PROJECT_DIR}/package-lock.json" "${PAYLOAD_DIR}/"
 fi

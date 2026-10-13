@@ -334,7 +334,14 @@ def build_icns():
     for name, px in sizes.items():
         src.resize((px, px), Image.Resampling.LANCZOS).save(iconset / name, "PNG")
 
-    subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(ICON_ICNS_PATH)], check=True)
+    try:
+        subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(ICON_ICNS_PATH)], check=True)
+    except subprocess.CalledProcessError:
+        # Algunas versiones recientes de macOS rechazan iconsets generados
+        # aunque las imágenes sean válidas. Conservamos el ICNS existente.
+        if not ICON_ICNS_PATH.exists():
+            raise
+        print("Warning: se conserva el ICNS existente porque iconutil rechazo el iconset.")
 
 
 def main():

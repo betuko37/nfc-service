@@ -24,7 +24,7 @@ process.stdin.on('error', () => {});
 // ============================================
 // CARGA DE MÓDULOS CON MANEJO DE ERRORES
 // ============================================
-let NFC, express, cors, fs, path, os;
+let NFC, express, cors, fs, path, os, childProcess, SysTray;
 
 try {
   NFC = require('nfc-pcsc').NFC;
@@ -40,6 +40,15 @@ try {
   setInterval(() => {
     console.log('[ESPERANDO] Servicio en espera debido a error de módulos...');
   }, 30000);
+}
+
+// La bandeja es opcional: nunca debe impedir que funcionen HTTP, NFC o impresión.
+try {
+  childProcess = require('child_process');
+  SysTray = require('systray2').default;
+} catch (error) {
+  childProcess = null;
+  SysTray = null;
 }
 
 // ============================================
@@ -77,6 +86,11 @@ let serviceStartTime = Date.now();
 let lastNfcActivity = Date.now();
 let nfcInstance = null;
 let getPrintStatus = () => ({ listening: false, packingCenterId: "", qzReady: false });
+let tray = null;
+let trayItems = null;
+let trayMenu = null;
+let serverReady = false;
+let trayCriticalError = false;
 
 // ============================================
 // FLAGS DE CONTROL PARA EVITAR BUCLES
@@ -108,6 +122,120 @@ function addLog(type, message) {
   const timestamp = new Date().toLocaleTimeString();
   const prefix = type === 'error' ? '✗' : type === 'success' ? '✓' : type === 'warning' ? '⚠' : 'ℹ';
   console.log(`[${timestamp}] ${prefix} ${message}`);
+}
+
+// ============================================
+// ICONO DE ESTADO EN LA BANDEJA DEL SISTEMA
+// ============================================
+function trayIconPath(status) {
+  const extension = IS_WINDOWS ? 'ico' : 'png';
+  return path.join(__dirname, `tray-${status}.${extension}`);
+}
+
+function openConsole() {
+  const url = `http://127.0.0.1:${PORT}/console`;
+  if (IS_WINDOWS) childProcess.spawn('cmd.exe', ['/c', 'start', '', url], { windowsHide: true });
+  else if (IS_MAC) childProcess.spawn('open', [url]);
+  else childProcess.spawn('xdg-open', [url]);
+}
+
+function traySnapshot() {
+  const print = getPrintStatus();
+  const status = trayCriticalError || !serverReady
+    ? 'red'
+    : !print.packingCenterId || print.qzReady
+      ? 'green'
+      : 'yellow';
+
+  const statusText = status === 'green'
+    ? 'Operando correctamente'
+    : status === 'yellow'
+      ? 'Operando con atención'
+      : 'Servicio con error';
+
+  return { status, statusText, print };
+}
+
+function refreshTray() {
+  if (!tray || !trayItems) return;
+  const snapshot = traySnapshot();
+  trayItems.status.title = `Estado: ${snapshot.statusText}`;
+  trayItems.reader.title = `Lector NFC: ${isReaderConnected ? 'Conectado' : 'No detectado'}`;
+  trayItems.print.title = `Impresión: ${snapshot.print.listening
+    ? (snapshot.print.qzReady ? 'Conectada' : 'Esperando QZ Tray')
+    : 'Sin configurar'}`;
+  void tray.sendAction({
+    type: 'update-menu',
+    menu: { ...trayMenu, icon: trayIconPath(snapshot.status), items: Object.values(trayItems) },
+  });
+}
+
+function startTray() {
+  if (!SysTray || !IS_WINDOWS && !IS_MAC) return;
+
+  const snapshot = traySnapshot();
+  // npm puede instalar el binario auxiliar sin el bit executable en macOS.
+  // Ajustarlo antes de que systray2 intente hacer spawn evita EACCES.
+  if (IS_MAC) {
+    try {
+      const trayBinary = path.join(
+        path.dirname(require.resolve('systray2')),
+        'traybin',
+        'tray_darwin_release',
+      );
+      fs.chmodSync(trayBinary, 0o755);
+    } catch (error) {
+      addLog('warning', `No se pudieron ajustar permisos de la bandeja: ${error.message}`);
+    }
+  }
+  trayItems = {
+    status: { title: `Estado: ${snapshot.statusText}`, tooltip: 'Estado actual', enabled: false },
+    reader: { title: '', tooltip: 'Estado del lector NFC', enabled: false },
+    print: { title: '', tooltip: 'Estado de impresión', enabled: false },
+    console: {
+      title: 'Abrir consola',
+      tooltip: 'Abrir consola de diagnóstico',
+      enabled: true,
+      click: openConsole,
+    },
+    restart: {
+      title: 'Reiniciar NFC',
+      tooltip: 'Reiniciar conexión NFC',
+      enabled: true,
+      click: () => {
+        lastReconnectTime = 0;
+        safeReconnect();
+      },
+    },
+    exit: {
+      title: 'Cerrar servicio',
+      tooltip: 'Cerrar NFC Service',
+      enabled: true,
+      click: () => tray.kill(true),
+    },
+  };
+
+  trayMenu = {
+    icon: trayIconPath(snapshot.status),
+    title: 'NFC Service',
+    tooltip: 'NFC Service',
+    items: Object.values(trayItems),
+  };
+  tray = new SysTray({
+    menu: trayMenu,
+    copyDir: false,
+  });
+  tray.onClick(action => {
+    if (action.item.click) action.item.click();
+  });
+  tray.ready().then(() => {
+    addLog('success', 'Indicador de estado iniciado en la bandeja del sistema');
+    refreshTray();
+  }).catch(error => {
+    addLog('warning', `No se pudo iniciar el indicador de bandeja: ${error.message}`);
+    tray = null;
+  });
+  setInterval(refreshTray, 5000);
 }
 
 // ============================================
@@ -522,6 +650,7 @@ try {
 // ============================================
 try {
   const server = app.listen(PORT, '0.0.0.0', () => {
+    serverReady = true;
     addLog('info', `Servicio NFC v2.1-stable iniciado en puerto ${PORT}`);
     addLog('info', `Plataforma detectada: ${getPlatformLabel()}`);
     addLog('info', `Esperando lector ${READER_NAME}...`);
@@ -538,6 +667,7 @@ try {
     console.log(`  `);
     console.log(`  Esperando lector ${READER_NAME}...`);
     console.log(`==========================================\n`);
+    startTray();
     
     // Inicializar NFC DESPUÉS de que el servidor HTTP esté listo
     // Esto asegura que el endpoint /status siempre esté disponible
@@ -549,6 +679,8 @@ try {
   });
 
   server.on('error', (error) => {
+    serverReady = false;
+    trayCriticalError = true;
     if (error.code === 'EADDRINUSE') {
       console.error(`[ERROR] El puerto ${PORT} ya está en uso.`);
       addLog('error', `Puerto ${PORT} en uso - otro proceso lo está usando`);

@@ -9,7 +9,10 @@
   },
   "pkg": {
     "assets": [
-      "console.html"
+      "console.html",
+      "tray-*.png",
+      "tray-*.ico",
+      "node_modules/systray2/traybin/*"
     ]
   },
   "dependencies": {
@@ -17,6 +20,7 @@
     "express": "^4.21.2",
     "nfc-pcsc": "^0.8.1",
     "socket.io-client": "^4.8.3",
+    "systray2": "^2.1.4",
     "ws": "^8.18.3"
   }
 }
