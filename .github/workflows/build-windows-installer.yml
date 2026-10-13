@@ -8,7 +8,8 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # windows-latest ya usa Visual Studio 18, que node-gyp 10 no reconoce.
+    runs-on: windows-2022
 
     steps:
       - name: Checkout
@@ -29,7 +30,9 @@ jobs:
       - name: Install dependencies and compile native NFC module
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $env:npm_config_python = (Get-Command python).Source
+          $env:npm_config_msvs_version = "2022"
           npm ci --omit=dev
           node -e "if (!require('nfc-pcsc').NFC) { throw 'nfc-pcsc no disponible' }"
 
