@@ -45,6 +45,12 @@ if exist "%SCRIPT_DIR%node_modules" (
     goto :error_encontrado
 )
 
+if exist "%SCRIPT_DIR%node_modules\nfc-pcsc\package.json" (
+    echo   [OK] Dependencia NFC nfc-pcsc encontrada
+) else (
+    echo   [WARN] nfc-pcsc no encontrado: NFC no funcionara, pero impresion si
+)
+
 echo.
 echo Intentando conectar al servicio...
 

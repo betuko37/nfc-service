@@ -24,17 +24,24 @@ process.stdin.on('error', () => {});
 // ============================================
 // CARGA DE MÓDULOS CON MANEJO DE ERRORES
 // ============================================
-let NFC, express, cors, fs, path, os, childProcess, SysTray;
+let NFC = null;
+let nfcLoadError = null;
+let express, cors, fs, path, os, childProcess, SysTray;
 
 try {
   NFC = require('nfc-pcsc').NFC;
+} catch (error) {
+  nfcLoadError = error;
+}
+
+try {
   express = require('express');
   cors = require('cors');
   fs = require('fs');
   path = require('path');
   os = require('os');
 } catch (error) {
-  console.error('[ERROR FATAL] No se pudieron cargar los módulos:', error.message);
+  console.error('[ERROR FATAL] No se pudieron cargar los módulos HTTP:', error.message);
   console.error('Asegúrate de que node_modules esté presente o usa el ejecutable compilado.');
   // Mantener el proceso vivo para diagnóstico
   setInterval(() => {
@@ -339,8 +346,16 @@ function safeReconnect() {
 
 // Inicializar el sistema NFC (NO BLOQUEANTE)
 let nfcInitTimeout = null;
+let nfcUnavailableLogged = false;
 
 function initializeNFC() {
+  if (!NFC) {
+    if (!nfcUnavailableLogged) {
+      nfcUnavailableLogged = true;
+      addLog('warning', `NFC no disponible; el servidor de impresión continuará activo: ${nfcLoadError?.message || 'falta nfc-pcsc'}`);
+    }
+    return;
+  }
   if (nfcInstance) {
     // Ya hay una instancia, no crear otra
     return;
